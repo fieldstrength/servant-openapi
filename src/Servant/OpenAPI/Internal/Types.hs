@@ -562,7 +562,7 @@ data HeaderObject = HeaderObject
     --   separate parameters for each value of the array or key-value pair of the
     --   map. For other types of parameters this property has no effect. The
     --   default value is false.
-  , schema :: Maybe SchemaOrReference
+  , schema :: Maybe (ReferenceOr SchemaObject)
     -- ^ The schema defining the type used for the parameter.
   , example :: Maybe Aeson.Value
     -- ^ Example of the parameter's potential value. The example SHOULD match
@@ -683,21 +683,21 @@ data SchemaObject = SchemaObject
   , enum :: Maybe [Text]
     -- ^ When @type@ is string, this defines the possible values the string may
     --   take
-  , allOf :: Maybe [SchemaOrReference]
+  , allOf :: Maybe [ReferenceOr SchemaObject]
     -- ^ Inline or referenced schema MUST be of a Schema Object and not a standard JSON Schema.
-  , oneOf :: Maybe [SchemaOrReference]
+  , oneOf :: Maybe [ReferenceOr SchemaObject]
     -- ^ Inline or referenced schema MUST be of a Schema Object and not a standard JSON Schema.
-  , anyOf :: Maybe [SchemaOrReference]
+  , anyOf :: Maybe [ReferenceOr SchemaObject]
     -- ^ Inline or referenced schema MUST be of a Schema Object and not a standard JSON Schema.
-  , not :: Maybe [SchemaOrReference]
+  , not :: Maybe [ReferenceOr SchemaObject]
     -- ^ Inline or referenced schema MUST be of a Schema Object and not a standard JSON Schema.
-  , items :: Maybe SchemaOrReference
+  , items :: Maybe (ReferenceOr SchemaObject)
     -- ^ Value MUST be an object and not an array. Inline or referenced schema
     --   MUST be of a Schema Object and not a standard JSON Schema. items MUST be
     --   present if the type is array.
   , properties :: Maybe Properties
     -- ^ Property definitions MUST be a Schema Object and not a standard JSON Schema (inline or referenced).
-  , additionalProperties :: Maybe (Either Bool SchemaOrReference)
+  , additionalProperties :: Maybe (Either Bool (ReferenceOr SchemaObject))
     -- ^ When @type_ == "object" 'additionalProperties' can be set to:
     --
     --    - Bool
@@ -734,16 +734,11 @@ data SchemaType
   | Null
   deriving stock (Generic, Show)
 
-newtype Properties = Properties { unProperties :: Map Text SchemaOrReference }
-  deriving stock (Generic, Show)
-
-data SchemaOrReference
-  = PropertyReferenceObject ReferenceObject
-  | PropertySchemaObject SchemaObject
+newtype Properties = Properties { unProperties :: Map Text (ReferenceOr SchemaObject) }
   deriving stock (Generic, Show)
 
 data MediaTypeObject = MediaTypeObject
-  { schema :: Maybe SchemaOrReference
+  { schema :: Maybe (ReferenceOr SchemaObject)
     -- ^ The schema defining the content of the request, response, or
     --   parameter.
   , example :: Maybe Aeson.Value
@@ -981,7 +976,6 @@ instance FromJSON CallbackObject where parseJSON = genericParseJSON jsonOptions
 instance FromJSON ParameterIn where parseJSON = genericParseJSON jsonOptions {constructorTagModifier = fmap toLower} -- FIXME be case insensitive
 instance FromJSON StyleValue where parseJSON = genericParseJSON jsonOptions
 instance FromJSON MediaTypeObject where parseJSON = genericParseJSON jsonOptions
-instance FromJSON SchemaOrReference where parseJSON = genericParseJSON jsonOptions
 instance FromJSON Properties where parseJSON = genericParseJSON jsonOptions
 instance FromJSON SecuritySchemaType where parseJSON = genericParseJSON jsonOptions
 instance FromJSON OathFlowsObject where parseJSON = genericParseJSON jsonOptions

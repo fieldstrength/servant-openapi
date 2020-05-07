@@ -69,7 +69,7 @@ class GSchemaUnion (f :: Type -> Type) where
 instance (Constructor cons, GPropertyMap f) => GSchemaUnion (C1 cons f) where
   gSchemaCases opts Proxy = pure
     blankObjectSchema
-      { properties = Just . Properties . fmap (PropertySchemaObject . fst) . gToPropertyMap opts $ Proxy @f
+      { properties = Just . Properties . fmap (ReferenceOr . fst) . gToPropertyMap opts $ Proxy @f
       , required =  Just . Map.keys . Map.filter ((==Required) . snd) . gToPropertyMap opts $ Proxy @f
       }
 
@@ -89,7 +89,7 @@ instance (Datatype d, GSchemaUnion f) => GToOpenAPISchema (D1 d f) where
     Left xs ->
       blankObjectSchema
         { title = Just . T.pack $ datatypeName @d undefined
-        , oneOf = Just $ PropertySchemaObject <$> xs
+        , oneOf = Just $ ReferenceOr <$> xs
         }
     Right x -> x
       { title = Just . T.pack $ datatypeName @d undefined
@@ -147,13 +147,13 @@ blankSchema ty = SchemaObject
   , minProperties = Nothing -- Maybe Int
   , required = Nothing -- Maybe [Text]
   , enum = Nothing -- Maybe [Text]
-  , allOf = Nothing -- Maybe [SchemaOrReference]
-  , oneOf = Nothing -- Maybe [SchemaOrReference]
-  , anyOf = Nothing -- Maybe [SchemaOrReference]
-  , not = Nothing -- Maybe [SchemaOrReference]
-  , items = Nothing -- Maybe SchemaOrReference
+  , allOf = Nothing -- Maybe [ReferenceOr SchemaObject]
+  , oneOf = Nothing -- Maybe [ReferenceOr SchemaObject]
+  , anyOf = Nothing -- Maybe [ReferenceOr SchemaObject]
+  , not = Nothing -- Maybe [ReferenceOr SchemaObject]
+  , items = Nothing -- Maybe ReferenceOr SchemaObject
   , properties = Nothing -- Maybe Properties
-  , additionalProperties = Nothing -- Maybe (Either Bool SchemaOrReference)
+  , additionalProperties = Nothing -- Maybe (Either Bool ReferenceOr SchemaObject)
   , description = Nothing -- Maybe Text
   , format = Nothing -- Maybe Text
   , default_ = Nothing -- Maybe Aeson.Value
