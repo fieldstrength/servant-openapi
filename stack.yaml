@@ -1,0 +1,8 @@
+resolver: lts-15.2
+
+packages:
+    - .
+
+extra-deps:
+  - git: https://github.com/fieldstrength/aeson-deriving
+    commit: 5c420f557c46450074c8c1922c5100cbe81e2a9f
