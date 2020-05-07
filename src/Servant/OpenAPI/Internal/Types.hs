@@ -4,66 +4,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Servant.OpenAPI.Internal.Types
-  ( -- * Open API
-    OpenAPI(..)
-    -- ** OpenAPI lenses
-  , apiInfo
-  , apiServers
-  , apiPaths
-  , apiComponents
-  , apiSecurity
-  , apiTags
-  , apiExternalDocs
 
-    -- * Info Object
-  , InfoObject(..)
-    -- ** Info object lenses
-  , infoTitle
-  , infoDescription
-  , infoTermsOfService
-  , infoContact
-  , infoLicense
-  , infoVersion
-
-    -- * Server Object
-  , ServerObject(..)
-    -- ** Server object lenses
-  , serverUrl
-  , serverDescription
-
-    -- * Tag object
-  , TagObject(..)
-    -- ** Tag object lenses
-  , tagName
-  , tagDescription
-  , tagExternalDocs
-
-    -- * External documentation object
-  , ExternalDocumentationObject(..)
-    -- ** External documentation object lenses
-  , externalDocsUrl
-  , externalDocsDescription
-
-    -- * License object
-  , LicenseObject(..)
-    -- ** License object lenses
-  , licenseName
-  , licenseUrl
-
-    -- * Contact object
-  , ContactObject(..)
-    -- ** Contact object lenses
-  , contactName
-  , contactUrl
-  , contactEmail
-
-    -- * Schema object
-  , SchemaObject(..)
-  , SchemaType(..)
-  , Properties(..)
-  , SchemaOrReference(..)
-  ) where
+module Servant.OpenAPI.Internal.Types where
 
 import           Control.Lens.Type (Lens')
 import           Control.Monad ((>=>))
