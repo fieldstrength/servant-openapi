@@ -5,19 +5,16 @@
 
 packages:
 - completed:
-    cabal-file:
-      size: 2568
-      sha256: e4a8c8a5827176d510f63ebfe76dd8fbf300a046eae7b4492bc1d33135e79516
     name: aeson-deriving
     version: 0.1.0.0
     git: https://github.com/fieldstrength/aeson-deriving
     pantry-tree:
-      size: 1077
-      sha256: f4b54778028daf7ede63c5512f45928539e300be342267eb44bb6e7432497d09
-    commit: 37830161c0895c8fd79977dd704c1efe74f6cd59
+      size: 1138
+      sha256: 1ae357c67336b3613abd28284ee8590db51e482f3aa2fac21c9704cdd31201d3
+    commit: 8ce466648e8e03429ba5975ffa6f28e659cb6da4
   original:
     git: https://github.com/fieldstrength/aeson-deriving
-    commit: 37830161c0895c8fd79977dd704c1efe74f6cd59
+    commit: 8ce466648e8e03429ba5975ffa6f28e659cb6da4
 snapshots:
 - completed:
     size: 491372
