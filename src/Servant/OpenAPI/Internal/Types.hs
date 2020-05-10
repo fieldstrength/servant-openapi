@@ -7,6 +7,7 @@
 module Servant.OpenAPI.Internal.Types where
 
 import           Control.Lens.Type (Lens')
+import           Control.Lens (over, _Just)
 import           Control.Monad ((>=>))
 import qualified Data.Aeson as Aeson (Value)
 import           Data.Aeson
@@ -26,6 +27,7 @@ type PackageOpts =
       [ SnakeCase
       , DropSuffix "_"  -- haskell keyworks suffixed with '_': type_, in_, default_
       ]
+  , OmitNothingFields := 'True
   ]
 
 type LowercaseEnum = '[ ConstructorTagModifier := Lowercase ]
@@ -250,7 +252,7 @@ newtype PathPattern' = PathPattern' Text
   deriving stock (Generic, Show, Eq, Ord)
   deriving newtype (IsString, ToJSON, FromJSON, ToJSONKey, FromJSONKey)
 
-newtype PathPattern = PathPattern [PathPatternPiece]
+newtype PathPattern = PathPattern {unPathPattern :: [PathPatternPiece]}
   deriving stock (Generic, Show, Eq, Ord)
 
 instance FromJSON PathPattern where parseJSON = withText "String" $ either fail pure . pathPatternFromText
@@ -271,6 +273,7 @@ pathPatternFromText' path = PathPattern $ (dropWhile (=="") $ Text.splitOn "/" p
       Text.stripPrefix "{" >=> Text.stripSuffix "}" $ pathPiece
 -- TODO: test partial isomorphism
 pathPatternToText :: PathPattern -> Text
+pathPatternToText (PathPattern []) = "/"
 pathPatternToText (PathPattern xs) = xs & foldMap \case
   PathVariable v -> "/{" <> v <> "}"
   PathPart v -> "/" <> v
@@ -283,13 +286,7 @@ data PathPatternPiece
   deriving stock (Generic, Show, Eq, Ord)
 
 data PathItemObject = PathItemObject
-  { ref :: Maybe Text
-    -- ^ Allows for an external definition of this path item
-    --
-    --   The referenced structure MUST be in the format of a Path Item Object.
-    --   In case a Path Item Object field appears both in the defined object
-    --   and the referenced object, the behavior is undefined.
-  , summary ::  Maybe Text
+  { summary ::  Maybe Text
     -- ^ An optional, string summary, intended to apply to all operations in
     --   this path.
   , description :: Maybe Text
@@ -324,6 +321,18 @@ data PathItemObject = PathItemObject
   }
   deriving stock (Generic, Show)
   deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts PathItemObject
+
+mapOperations :: (OperationObject -> OperationObject) -> PathItemObject -> PathItemObject
+mapOperations f
+  = over (#get . _Just) f
+  . over (#put . _Just) f
+  . over (#post . _Just) f
+  . over (#delete . _Just) f
+  . over (#options . _Just) f
+  . over (#head . _Just) f
+  . over (#patch . _Just) f
+  . over (#trace . _Just) f
+
 
 data OperationObject = OperationObject
   { tags :: Maybe [Text]

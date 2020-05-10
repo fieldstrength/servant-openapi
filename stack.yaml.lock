@@ -5,6 +5,9 @@
 
 packages:
 - completed:
+    cabal-file:
+      size: 2568
+      sha256: e4a8c8a5827176d510f63ebfe76dd8fbf300a046eae7b4492bc1d33135e79516
     name: aeson-deriving
     version: 0.1.0.0
     git: https://github.com/fieldstrength/aeson-deriving

@@ -1,5 +1,6 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE GADTs #-}
+{-# options -w #-}
 
 module OpenAPI.ToSchema.Internal where
 
@@ -113,18 +114,6 @@ data SumEncoding
 
 instance ToOpenAPISchema a => GToOpenAPISchema (Rec0 a) where
   gToSchema _opts Proxy = toSchema (Proxy @a)
-
-
-data Dog = Dog
-  { dogName :: Text
-  , dogAge :: Int
-  } deriving stock (Generic)
-
-data User = Anonymous Text | LoggedInUser Int Text
-  deriving stock (Generic)
-
-instance ToOpenAPISchema Dog
-instance ToOpenAPISchema User
 
 
 blankSchema :: SchemaType -> SchemaObject

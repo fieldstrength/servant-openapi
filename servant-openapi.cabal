@@ -81,6 +81,7 @@ library
     , containers                >= 0.6      && < 0.7
     , unordered-containers
     , generic-lens              >= 1.2      && < 1.3
+    , lens
     , http-media                >= 0.8      && < 0.9
     , lens                      >= 4.18     && < 4.19
     , servant                   >= 0.16     && < 0.18
