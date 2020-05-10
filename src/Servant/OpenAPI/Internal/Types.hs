@@ -430,7 +430,7 @@ data ResponseObject = ResponseObject
     -- ^ Maps a header name to its definition. RFC7230 states header names are
     --   case insensitive. If a response header is defined with the name
     --   "Content-Type", it SHALL be ignored.
-  , content :: Maybe (Map Text MediaTypeObject)
+  , content :: Maybe (Map MediaType MediaTypeObject)
     -- ^ A map containing descriptions of potential response payloads. The key is
     --   a media type or media type range and the value describes it. For responses
     --   that match multiple keys, only the most specific key is applicable. e.g.
@@ -508,7 +508,7 @@ data ParameterObject = ParameterObject
   --   The examples field is mutually exclusive of the example field.
   --   Furthermore, if referencing a schema that contains an example, the
   --   examples value SHALL override the example provided by the schema.
-  , content :: Maybe (Map Text MediaTypeObject)
+  , content :: Maybe (Map MediaType MediaTypeObject)
   -- ^ A map containing the representations for the parameter. The key is the
   --   media type and the value describes it. The map MUST only contain one
   --   entry.
@@ -577,7 +577,7 @@ data RequestBodyObject = RequestBodyObject
   { description :: Maybe Text
     -- ^ A brief description of the request body. This could contain examples
     --   of use. CommonMark syntax MAY be used for rich text representation.
-  , content :: Map Text MediaTypeObject
+  , content :: Map MediaType MediaTypeObject
     -- ^ The content of the request body. The key is a media type or media type
     --   range and the value describes it. For requests that match multiple keys,
     --   only the most specific key is applicable. e.g. text/plain overrides
@@ -670,8 +670,12 @@ data SecuritySchemeObject = SecuritySchemeObject
   deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts SecuritySchemeObject
 
 newtype SecuritySchemaType = SecuritySchemaType Text
-  deriving stock (Generic, Show)
+  deriving stock (Generic, Show, Eq)
   deriving newtype (FromJSON, ToJSON, IsString)
+
+newtype MediaType = MediaType Text
+  deriving stock (Generic, Show, Eq, Ord)
+  deriving newtype (FromJSON, ToJSON, FromJSONKey, ToJSONKey, IsString)
 
 data OathFlowsObject = OauthFlowsObject
   { implicit :: Maybe ImplicitOauthFlowObject
@@ -787,6 +791,7 @@ newtype Properties = Properties { unProperties :: Map Text (ReferenceOr SchemaOb
   deriving stock (Generic, Show)
   deriving newtype (FromJSON, ToJSON)
 
+-- | In practice this is where the actual schema is.
 data MediaTypeObject = MediaTypeObject
   { schema :: Maybe (ReferenceOr SchemaObject)
     -- ^ The schema defining the content of the request, response, or
@@ -798,7 +803,7 @@ data MediaTypeObject = MediaTypeObject
     --   which contains an example, the example value SHALL override the example
     --   provided by the schema.
   , examples :: Maybe (Map Text (ReferenceOr ExampleObject))
-    -- ^ NOTE: What the key is supposed to mean in this map is unclear.
+    -- ^ NOTE: What the key is supposed to mean in this map is unclear. A name?
     --
     --   Examples of the media type. Each example object SHOULD match the media
     --   type and specified schema if present. The examples field is mutually
