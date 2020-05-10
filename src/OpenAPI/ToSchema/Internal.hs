@@ -1,6 +1,5 @@
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE GADTs #-}
 
 module OpenAPI.ToSchema.Internal where
 
@@ -35,7 +34,7 @@ instance ToOpenAPISchema Int where toSchema Proxy = (blankSchema Integer) {title
 ------------------------------- Generic class for Maps of properties -------------------------------
 
 data Requirement = Required | Optional
-  deriving (Show, Eq, Generic)
+  deriving stock (Show, Eq, Generic)
 
 class GPropertyMap (f :: Type -> Type) where
   gToPropertyMap :: GenericSchemaOptions -> Proxy f -> Map Text (SchemaObject, Requirement)
@@ -105,11 +104,11 @@ data GenericSchemaOptions = GenericSchemaOptions
   { fieldNameModifier :: String -> String
   , sumEncoding :: SumEncoding
   }
-  deriving Generic
+  deriving stock Generic
 
 data SumEncoding
   = UntaggedValue
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 
 instance ToOpenAPISchema a => GToOpenAPISchema (Rec0 a) where
@@ -119,10 +118,10 @@ instance ToOpenAPISchema a => GToOpenAPISchema (Rec0 a) where
 data Dog = Dog
   { dogName :: Text
   , dogAge :: Int
-  } deriving (Generic)
+  } deriving stock (Generic)
 
 data User = Anonymous Text | LoggedInUser Int Text
-  deriving (Generic)
+  deriving stock (Generic)
 
 instance ToOpenAPISchema Dog
 instance ToOpenAPISchema User

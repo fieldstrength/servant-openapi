@@ -13,11 +13,11 @@ packages:
     git: https://github.com/fieldstrength/aeson-deriving
     pantry-tree:
       size: 1077
-      sha256: 1f62eaf2edc1557575b9c559aa7b16fef870e46cd0d0a056ce26ea9b63ce27be
-    commit: 5c420f557c46450074c8c1922c5100cbe81e2a9f
+      sha256: f4b54778028daf7ede63c5512f45928539e300be342267eb44bb6e7432497d09
+    commit: 37830161c0895c8fd79977dd704c1efe74f6cd59
   original:
     git: https://github.com/fieldstrength/aeson-deriving
-    commit: 5c420f557c46450074c8c1922c5100cbe81e2a9f
+    commit: 37830161c0895c8fd79977dd704c1efe74f6cd59
 snapshots:
 - completed:
     size: 491372
