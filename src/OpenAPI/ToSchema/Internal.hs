@@ -68,7 +68,7 @@ class GSchemaUnion (f :: Type -> Type) where
 instance (Constructor cons, GPropertyMap f) => GSchemaUnion (C1 cons f) where
   gSchemaCases opts Proxy = pure
     blankObjectSchema
-      { properties = Just . Properties . fmap (ReferenceOr . fst) . gToPropertyMap opts $ Proxy @f
+      { properties = Just . Properties . fmap (Concrete . fst) . gToPropertyMap opts $ Proxy @f
       , required =  Just . Map.keys . Map.filter ((==Required) . snd) . gToPropertyMap opts $ Proxy @f
       }
 
@@ -88,7 +88,7 @@ instance (Datatype d, GSchemaUnion f) => GToOpenAPISchema (D1 d f) where
     Left xs ->
       blankObjectSchema
         { title = Just . T.pack $ datatypeName @d undefined
-        , oneOf = Just $ ReferenceOr <$> xs
+        , oneOf = Just $ Concrete <$> xs
         }
     Right x -> x
       { title = Just . T.pack $ datatypeName @d undefined

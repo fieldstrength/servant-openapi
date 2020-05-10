@@ -57,7 +57,7 @@ instance (SBoolI (FoldRequired mods), KnownSymbol name, ToOpenAPISchema a)
         , style = Nothing
         , explode = Nothing
         , allowReserved = Nothing
-        , schema = Just . ReferenceOr . toSchema $ Proxy @a
+        , schema = Just . Concrete . toSchema $ Proxy @a
         , example = Nothing
         , examples = Nothing
         , content = Nothing
@@ -96,7 +96,7 @@ instance (SBoolI (FoldRequired mods), KnownSymbol name, ToOpenAPISchema a)
         , style = Nothing
         , explode = Nothing
         , allowReserved = Nothing
-        , schema = Just . ReferenceOr . toSchema $ Proxy @a
+        , schema = Just . Concrete . toSchema $ Proxy @a
         , example = Nothing
         , examples = Nothing
         , content = Nothing
@@ -115,7 +115,7 @@ instance (KnownSymbol name, ToOpenAPISchema a) => HasEndpointAttribute (Capture 
       , style = Nothing
       , explode = Nothing
       , allowReserved = Nothing
-      , schema = Just . ReferenceOr . toSchema $ Proxy @a
+      , schema = Just . Concrete . toSchema $ Proxy @a
       , example = Nothing
       , examples = Nothing
       , content = Nothing
@@ -127,7 +127,7 @@ instance (ToOpenAPISchema a, SBoolI (FoldLenient mods)) => HasEndpointAttribute 
       { description = Nothing
       , content = Map.singleton "application/json"  -- FIXME
         MediaTypeObject
-          { schema = Just . ReferenceOr . toSchema $ Proxy @a
+          { schema = Just . Concrete . toSchema $ Proxy @a
           , example = Nothing
           , examples = Nothing
           , encoding = Nothing
@@ -155,7 +155,7 @@ instance {-# OVERLAPPABLE #-} (IsVerb verb, KnownNat status)
         , requestBody = Nothing
         -- https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.3.md#responsesObject
         , responses = ResponsesObject .
-            Map.singleton (Text.pack . show . natVal $ Proxy @status) . ReferenceOr $ ResponseObject
+            Map.singleton (Text.pack . show . natVal $ Proxy @status) . Concrete $ ResponseObject
               { description = ":-)"  -- FIXME
               , headers = Nothing
               , content = Nothing
@@ -182,10 +182,10 @@ instance {-# OVERLAPPING #-} (IsVerb verb, KnownNat status, KnownHeaders hs)
         , requestBody = Nothing
         -- https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.3.md#responsesObject
         , responses = ResponsesObject .
-            Map.singleton (Text.pack . show . natVal $ Proxy @status) . ReferenceOr $ ResponseObject
+            Map.singleton (Text.pack . show . natVal $ Proxy @status) . Concrete $ ResponseObject
               { description = ":-)"
               , headers = Just $ Map.fromList $ (headerVals $ Proxy @hs) <&> \h ->
-                (Text.pack h,) . ReferenceOr $ HeaderObject
+                (Text.pack h,) . Concrete $ HeaderObject
                   { description = Nothing
                   , required = Nothing
                   , deprecated = Nothing

@@ -414,7 +414,7 @@ newtype ReferenceObject = ReferenceObject { ref :: Text }
 
 data ReferenceOr a
   = Ref ReferenceObject
-  | ReferenceOr a
+  | Concrete a
   deriving stock (Generic, Show)
 
 deriving via GenericEncoded '[SumEncoding := UntaggedValue] (ReferenceOr a)
