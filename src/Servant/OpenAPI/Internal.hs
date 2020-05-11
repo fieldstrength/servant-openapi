@@ -166,7 +166,9 @@ instance (KnownSymbol name, HasEndpoints api) => HasEndpoints (QueryFlag name :>
 
 addParam :: ParameterObject -> OperationObject -> OperationObject
 addParam param = over #parameters $
-  maybe (Just [Concrete param]) (\ps -> Just (Concrete param : ps))
+  maybe
+    (Just [Concrete param])
+    (\ps -> Just (Concrete param : ps))
 
 instance
   ( HasEndpoints api
@@ -254,11 +256,11 @@ class HasResponse api where
 applicationJson :: MediaType
 applicationJson = "application/json"
 
-instance {-# OVERLAPPABLE #-} (ToOpenAPISchema a, KnownHeaders hs) => HasResponse (Headers hs a) where
+
+instance (KnownHeaders hs, HasResponse r) => HasResponse (Headers hs r) where
   toResponseObject Proxy =
-    ResponseObject
-      { description = "Successful result response"  -- FIXME
-      , headers = Just . Map.fromList $
+    (toResponseObject $ Proxy @r)
+      { headers = Just . Map.fromList $
         (headerVals $ Proxy @hs) <&> \h ->
           (Text.pack h,) . Concrete $ HeaderObject
             { description = Nothing
@@ -269,12 +271,20 @@ instance {-# OVERLAPPABLE #-} (ToOpenAPISchema a, KnownHeaders hs) => HasRespons
             , example = Nothing
             , examples = Nothing
             }
-      , content = Just $ Map.singleton applicationJson MediaTypeObject
-        { schema = Just . Concrete . toSchema $ Proxy @a
-        , example = Nothing
-        , examples = Nothing
-        , encoding = Nothing
-        }
+      }
+
+instance {-# OVERLAPPABLE #-} (ToOpenAPISchema a) => HasResponse a where
+  toResponseObject Proxy =
+    ResponseObject
+      { description = "Successful result response"  -- FIXME
+      , headers = Nothing
+      , content = Just $ Map.singleton applicationJson
+        MediaTypeObject
+          { schema = Just . Concrete . toSchema $ Proxy @a
+          , example = Nothing
+          , examples = Nothing
+          , encoding = Nothing
+          }
       , links = Nothing
       }
 
@@ -286,49 +296,6 @@ instance HasResponse NoContent where
       , content = Nothing
       , links = Nothing
       }
-
---instance {-# OVERLAPPABLE #-} ToOpenAPISchema a => HasResponse a where
---  toResponseObject Proxy = ResponseObject
---    { description = "Successful result response"  -- FIXME
---    , headers = Nothing
---    , content = Just $ Map.singleton applicationJson MediaTypeObject
---      { schema = Just . Concrete . toSchema $ Proxy @a
---      , example = Nothing
---      , examples = Nothing
---      , encoding = Nothing
---      }
---    , links = Nothing
---    }
---
---instance {-# OVERLAPPABLE #-} (HasResponse a, KnownHeaders hs) => HasResponse (Headers hs a) where
---  toResponseObject Proxy =
---    (toResponseObject $ Proxy @a)
---      { headers = Just $
---        Map.fromList $ (headerVals $ Proxy @hs) <&> \h ->
---          (Text.pack h,) . Concrete $ HeaderObject
---            { description = Nothing
---            , required = Nothing
---            , deprecated = Nothing
---            , explode = Nothing
---            , schema = Nothing  -- TODO: header schema
---            , example = Nothing
---            , examples = Nothing
---            }
---      }
-
-
-
-class IsVerb verb where toVerb :: Proxy verb -> VERB
-
-instance IsVerb 'GET where toVerb Proxy = VerbGet
-instance IsVerb 'PUT where toVerb Proxy = VerbPut
-instance IsVerb 'POST where toVerb Proxy = VerbPost
-instance IsVerb 'DELETE where toVerb Proxy = VerbDelete
-instance IsVerb 'OPTIONS where toVerb Proxy = VerbOptions
-instance IsVerb 'HEAD where toVerb Proxy = VerbHead
-instance IsVerb 'PATCH where toVerb Proxy = VerbPatch
-instance IsVerb 'TRACE where toVerb Proxy = VerbTrace
-
 
 
 data VERB
@@ -353,18 +320,22 @@ verbLens = \case
   VerbPatch -> #patch
   VerbTrace -> #trace
 
--- Basically collect endpoint stuff as described in Operations, PathItem objects
--- https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.3.md#operation-object
--- https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.3.md#pathsObject
+class IsVerb verb where toVerb :: Proxy verb -> VERB
 
--- OperationObject  - contains parameter list, req body, responses. also server info
--- RequestBodyObject  - contains the reqbody schema within a Map indexed by content types
--- PathItemObject   - Describes multiple endpoints corresponding to different verbs associated to a path.
---                  - Contains an OperationObject for every verb.
+instance IsVerb 'GET where toVerb Proxy = VerbGet
+instance IsVerb 'PUT where toVerb Proxy = VerbPut
+instance IsVerb 'POST where toVerb Proxy = VerbPost
+instance IsVerb 'DELETE where toVerb Proxy = VerbDelete
+instance IsVerb 'OPTIONS where toVerb Proxy = VerbOptions
+instance IsVerb 'HEAD where toVerb Proxy = VerbHead
+instance IsVerb 'PATCH where toVerb Proxy = VerbPatch
+instance IsVerb 'TRACE where toVerb Proxy = VerbTrace
+
 
 class KnownHeaders hs where
   headerVals :: Proxy hs -> [String] -- TODO: pair with schemas
 
 instance KnownHeaders ('[] :: [*]) where headerVals Proxy = []
-instance (KnownSymbol str, KnownHeaders rest) => KnownHeaders ((Header str a ': rest) :: [*]) where
-  headerVals Proxy = symbolVal (Proxy @str) : headerVals (Proxy @rest)
+instance (KnownSymbol str, KnownHeaders rest)
+  => KnownHeaders ((Header str a ': rest) :: [*]) where
+    headerVals Proxy = symbolVal (Proxy @str) : headerVals (Proxy @rest)
