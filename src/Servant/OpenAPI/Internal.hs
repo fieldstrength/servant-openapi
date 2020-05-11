@@ -6,6 +6,7 @@ module Servant.OpenAPI.Internal where
 
 import           Control.Lens (Lens', mapped, over, set, view, _1)
 import           Data.Functor
+import           Control.Applicative (liftA2, (<|>))
 import           Data.Generics.Labels           ()
 import           Data.Map (Map)
 import qualified Data.Map.Strict                as Map
@@ -42,15 +43,112 @@ instance (KnownSymbol str, HasEndpoints api)
   (str :> api) where
     toEndpoints Proxy =
       unsafeMapPathPatterns
-        (over #unPathPattern $ ([PathPart . Text.pack . symbolVal $ Proxy @str]<>))
+        (over #unPathPattern $ (<>) [PathPart . Text.pack . symbolVal $ Proxy @str])
         (toEndpoints $ Proxy @api)
 
-instance (KnownSymbol name, HasEndpoints api) => HasEndpoints (QueryFlag name :> api) where
-  toEndpoints Proxy = (toEndpoints $ Proxy @api) <&> mapOperations (over #parameters updateParams)
+instance (ToOpenAPISchema a, KnownSymbol name, HasEndpoints api)
+  => HasEndpoints
+  (Capture name a :> api) where
+    toEndpoints Proxy =
+      unsafeMapPathPatterns
+        (over #unPathPattern $ (<>) [PathVariable . Text.pack . symbolVal $ Proxy @name])
+        (mapOperations (addParam param) <$> toEndpoints (Proxy @api))
+      where
+        param = ParameterObject
+          { in_ = Path
+          , name = Text.pack . symbolVal $ Proxy @name
+          , description = Nothing
+          , required = Just True
+          , deprecated = Nothing
+          , allowEmptyValue = Just False
+          , style = Nothing
+          , explode = Nothing
+          , allowReserved = Nothing
+          , schema = Just . Concrete . toSchema $ Proxy @a
+          , example = Nothing
+          , examples = Nothing
+          , content = Nothing
+          }
 
+instance (ToOpenAPISchema a, KnownSymbol name, SBoolI (FoldRequired mods), HasEndpoints api)
+  => HasEndpoints
+  (QueryParam' mods name a :> api) where
+    toEndpoints Proxy =
+      mapOperations (addParam param) <$> toEndpoints (Proxy @api)
+      where
+        param = ParameterObject
+          { in_ = Query
+          , name = Text.pack . symbolVal $ Proxy @name
+          , description = Nothing
+          , required = Just $ case sbool @(FoldRequired mods) of
+              STrue  -> True
+              SFalse -> False
+          , deprecated = Nothing
+          , allowEmptyValue = Just False
+          , style = Nothing
+          , explode = Nothing
+          , allowReserved = Nothing
+          , schema = Just . Concrete . toSchema $ Proxy @a
+          , example = Nothing
+          , examples = Nothing
+          , content = Nothing
+          }
+
+instance (ToOpenAPISchema a, KnownSymbol name, SBoolI (FoldRequired mods), HasEndpoints api)
+  => HasEndpoints
+  (Header' mods name a :> api) where
+    toEndpoints Proxy =
+      mapOperations (addParam param) <$> toEndpoints (Proxy @api)
+      where
+        param = ParameterObject
+          { in_ = OpenAPI.Header
+          , name = Text.pack . symbolVal $ Proxy @name
+          , description = Nothing
+          , required = Just $ case sbool @(FoldRequired mods) of
+              STrue  -> True
+              SFalse -> False
+          , deprecated = Nothing
+          , allowEmptyValue = Just False
+          , style = Nothing
+          , explode = Nothing
+          , allowReserved = Nothing
+          , schema = Just . Concrete . toSchema $ Proxy @a
+          , example = Nothing
+          , examples = Nothing
+          , content = Nothing
+          }
+
+instance (HasEndpoints l, HasEndpoints r)
+  => HasEndpoints
+    (l :<|> r) where
+      toEndpoints Proxy =
+        Map.unionWith fish
+          (toEndpoints $ Proxy @l)
+          (toEndpoints $ Proxy @r)
+
+fish :: PathItemObject -> PathItemObject -> PathItemObject
+fish x y = PathItemObject
+  { summary     = view #summary x      <|> view #summary y
+  , description = view #description x  <|> view #description y
+  , get         = view #get x          <|> view #get y
+  , put         = view #put x          <|> view #put y
+  , post        = view #post x         <|> view #post y
+  , delete      = view #delete x       <|> view #delete y
+  , options     = view #options x      <|> view #options y
+  , head        = view #head x         <|> view #head y
+  , patch       = view #patch x        <|> view #patch y
+  , trace       = view #trace x        <|> view #trace y
+  , servers     = view #servers x      <|> view #servers y
+  , parameters  = view #parameters x   <|> view #parameters y
+  }
+
+deepMappend :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
+deepMappend f mx my = liftA2 f mx my <|> mx <|> my
+
+instance (KnownSymbol name, HasEndpoints api) => HasEndpoints (QueryFlag name :> api) where
+  toEndpoints Proxy = (toEndpoints $ Proxy @api) <&> mapOperations (addParam param)
     where
-      updateParams = maybe (Just [param]) (\ps -> Just (param : ps))
-      param = Concrete $ ParameterObject
+      param = ParameterObject
         { in_ = Query
         , name = Text.pack . symbolVal $ Proxy @name
         , description = Nothing
@@ -65,6 +163,10 @@ instance (KnownSymbol name, HasEndpoints api) => HasEndpoints (QueryFlag name :>
         , examples = Nothing
         , content = Nothing
         }
+
+addParam :: ParameterObject -> OperationObject -> OperationObject
+addParam param = over #parameters $
+  maybe (Just [Concrete param]) (\ps -> Just (Concrete param : ps))
 
 instance
   ( HasEndpoints api
@@ -86,7 +188,7 @@ instance
                 , encoding = Nothing
                 }
             , required = case sbool @(FoldLenient mods) of
-              STrue -> False
+              STrue  -> False
               SFalse -> True
             }
 
@@ -173,6 +275,15 @@ instance {-# OVERLAPPABLE #-} (ToOpenAPISchema a, KnownHeaders hs) => HasRespons
         , examples = Nothing
         , encoding = Nothing
         }
+      , links = Nothing
+      }
+
+instance HasResponse NoContent where
+  toResponseObject Proxy =
+    ResponseObject
+      { description = "Empty response"
+      , headers = Nothing
+      , content = Nothing
       , links = Nothing
       }
 

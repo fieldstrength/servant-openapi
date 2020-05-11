@@ -318,6 +318,9 @@ data PathItemObject = PathItemObject
     --   combination of a name and location. The list can use the Reference
     --   Object to link to parameters that are defined at the OpenAPI Object's
     --   components/parameters.
+    --
+    --   NOTE: we take the approach of putting parameters into the inner 'OperationObject's
+    --   because otherwise interpreting :<|> would give incorrect results.   
   }
   deriving stock (Generic, Show)
   deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts PathItemObject

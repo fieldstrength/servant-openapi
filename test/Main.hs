@@ -28,15 +28,44 @@ main = do
 -- https://github.com/OAI/OpenAPI-Specification/tree/master/examples/v3.0
 
 
-type API
+type API = CatAPI :<|> DogAPI :<|> DeleteDogAPI
+
+type CatAPI
+  = "cats"
+  :> Header "collar" Text
+  :> QueryParam "ignored_instruction" Text
+  :> QueryFlag "come_here"
+  :> ReqBody '[JSON] Cat
+  :> PutCreated '[JSON] Cat
+
+type DogAPI
   = "dogs"
+  :> Header' '[Required] "leash" Text
+  :> Capture "dog_name" Text
   :> QueryFlag "good_boy"
   :> ReqBody '[JSON] Dog
   :> PutCreated '[JSON] (Headers '[Header "Location" Text] Dog)
 
+type DeleteDogAPI
+  = "dogs"
+  :> Capture "dog_name" Text
+  :> Delete '[JSON] NoContent
+
 data Dog = Dog
   { name :: Text
   , age :: Int
+  }
+  deriving stock (Show, Generic)
+  deriving anyclass (ToOpenAPISchema)
+
+data Color = Black | White | Brown
+  deriving stock (Show, Generic)
+  -- deriving anyclass (ToOpenAPISchema)
+
+
+data Cat = Cat
+  { name :: Text
+  , color :: Text
   }
   deriving stock (Show, Generic)
   deriving anyclass (ToOpenAPISchema)
