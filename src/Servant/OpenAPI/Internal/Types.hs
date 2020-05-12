@@ -320,7 +320,7 @@ data PathItemObject = PathItemObject
     --   components/parameters.
     --
     --   NOTE: we take the approach of putting parameters into the inner 'OperationObject's
-    --   because otherwise interpreting :<|> would give incorrect results.   
+    --   because otherwise interpreting :<|> would give incorrect results.
   }
   deriving stock (Generic, Show)
   deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts PathItemObject
@@ -704,11 +704,23 @@ data OathFlowsObject = OauthFlowsObject
   deriving stock (Generic, Show)
   deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts OathFlowsObject
 
+data Discriminator = Discriminator
+  { propertyName :: Text
+  , mapping :: Maybe (Map Text (ReferenceOr SchemaObject))
+  }
+  deriving stock (Generic, Show)
+  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts Discriminator
+
 data SchemaObject = SchemaObject
   { title :: Maybe Text
     -- ^ The name of the schema
   , type_ :: SchemaType
     -- ^ Value MUST be a string. Multiple types via an array are not supported.
+  , discriminator :: Maybe Discriminator
+    -- ^ Adds support for polymorphism. The discriminator is an object name that is
+    --   used to differentiate between other schemas which may satisfy the payload
+    --   description.
+    --   https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.3.md#discriminatorObject
   , multipleOf :: Maybe Int
     -- ^ When @type@ is integer, this defines valid values as a multiple
   , maximum :: Maybe Int

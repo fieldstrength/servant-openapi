@@ -15,17 +15,16 @@ main :: IO ()
 main = do
   _petstore1 <- decodeFileThrow @_ @OpenAPI "examples/petstore.yaml"
   _petstore2 <- decodeFileThrow @_ @OpenAPI "examples/petstore-expanded.yaml"
-  --print petstoreExpanded
 
   let endpoints = toEndpoints $ Proxy @API
   print endpoints
 
-  putStrLn ""
-
-  BS.putStrLn (Yaml.encode endpoints)
-
 -- More examples at:
 -- https://github.com/OAI/OpenAPI-Specification/tree/master/examples/v3.0
+
+  putStrLn ""
+  BS.putStrLn (Yaml.encode endpoints)
+
 
 
 type API = CatAPI :<|> DogAPI :<|> DeleteDogAPI
@@ -60,12 +59,13 @@ data Dog = Dog
 
 data Color = Black | White | Brown
   deriving stock (Show, Generic)
-  -- deriving anyclass (ToOpenAPISchema)
+  deriving anyclass (ToOpenAPISchema)
 
 
 data Cat = Cat
   { name :: Text
-  , color :: Text
+  , color :: Color
+  , bro :: Maybe Dog
   }
   deriving stock (Show, Generic)
   deriving anyclass (ToOpenAPISchema)
