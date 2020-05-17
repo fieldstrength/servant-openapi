@@ -1,0 +1,8 @@
+packages:
+  openapi
+  servant-openapi
+
+source-repository-package
+  type: git
+  location: https://github.com/fieldstrength/aeson-deriving
+  tag: 8ce466648e8e03429ba5975ffa6f28e659cb6da4
