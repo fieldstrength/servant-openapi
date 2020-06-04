@@ -10,6 +10,7 @@ import           Data.Aeson.Deriving    hiding (SumEncoding)
 import           Data.Coerce            (coerce)
 import           Data.Function
 import           Data.Functor
+import           Data.Traversable       (for)
 import           Data.Int
 import           Data.Kind              (Type)
 import           Data.List.NonEmpty     (NonEmpty)
@@ -101,7 +102,7 @@ defaultSchemaOptions = GenericSchemaOptions
 -- | Holds the true source field name, contained data schema, and if required.
 --   Could make the selector field Maybe'd but that would support a tiny fraction of uses.
 data FieldInfo = FieldInfo
-  { selector :: String
+  { selector :: Maybe String
   , schema :: SchemaObject
   , requirement :: Requirement
   } deriving stock (Generic, Show)
@@ -124,7 +125,7 @@ instance (KnownSymbol sel, ToOpenAPISchema a)
   => GFieldMap (S1 ('MetaSel ('Just sel) x y z) (Rec0 a)) where
     fieldMap Proxy = pure @[]
       FieldInfo
-        { selector = symbolVal $ Proxy @sel
+        { selector = Just . symbolVal $ Proxy @sel
         , schema = toSchema $ Proxy @a
         , requirement = Required
         }
@@ -134,14 +135,18 @@ instance {-# OVERLAPPING #-} (KnownSymbol sel, ToOpenAPISchema a)
   => GFieldMap (S1 ('MetaSel ('Just sel) x y z) (Rec0 (Maybe a))) where
     fieldMap Proxy = pure @[]
       FieldInfo
-        { selector = symbolVal $ Proxy @sel
+        { selector = Just . symbolVal $ Proxy @sel
         , schema = toSchema $ Proxy @a
         , requirement = Optional
         }
 
-instance TypeError ('Text "Non-record product types are not supported for schema deriving")
-  => GFieldMap (S1 ('MetaSel 'Nothing x y z) (Rec0 a)) where
-    fieldMap = undefined
+instance ToOpenAPISchema a => GFieldMap (S1 ('MetaSel 'Nothing x y z) (Rec0 a)) where
+    fieldMap Proxy = pure @[]
+      FieldInfo
+        { selector = Nothing
+        , schema = toSchema $ Proxy @a
+        , requirement = Required
+        }
 
 instance (GFieldMap l, GFieldMap r) => GFieldMap (l :*: r) where
   fieldMap Proxy =
@@ -220,13 +225,15 @@ genericToSchema opts Proxy = mkSchema opts . gToOpenAPI $ Proxy @(Rep a)
 --   by the generic type classes.
 mkSchema :: GenericSchemaOptions -> DatatypeInfo 'Source -> SchemaObject
 mkSchema opts (transformNames opts -> dtInfo)
-  -- view pattern here ^ prevents acces to the wrong version the DatatypeInfo
+  -- view pattern here ^ prevents acces to the wrong version of the DatatypeInfo
+  | isVoid dtInfo = voidSchema
   | isEnum dtInfo && allNullaryToStringTag opts = enumSchema dtInfo
   | otherwise, [c] <- constructors dtInfo =
       singleConstructorSchema (typeName dtInfo) c
         & if tagSingleConstructors opts
             then setSingleConstructorTag (T.pack $ constructorName c)
             else id
+  -- Improvement: Handle non-record products here
   | otherwise = case sumEncoding opts of
       Tagged tag -> taggedRecordSum opts tag dtInfo
       Untagged -> untaggedRecordSum dtInfo
@@ -247,11 +254,18 @@ addToProperties name schema = \case
   Nothing -> Just . Properties $ Map.singleton name (Concrete schema)
   Just (Properties ps) -> Just . Properties $ Map.insert name (Concrete schema) ps
 
+isVoid :: DatatypeInfo p -> Bool
+isVoid DatatypeInfo{constructors} = length constructors == 0
+
 isEnum :: DatatypeInfo p -> Bool
-isEnum DatatypeInfo{constructors} = all nullary constructors
+isEnum DatatypeInfo{constructors} =
+  all nullary constructors && length constructors > 0
 
 nullary :: ConstructorInfo -> Bool
 nullary = (==0) . length . fields
+
+voidSchema :: SchemaObject
+voidSchema = blank {oneOf = Just []}
 
 -- | A nameless schema that only declares type `String` with an enum options list
 simpleEnumSchema :: [Text] -> SchemaObject
@@ -266,10 +280,16 @@ simpleEnumSchema vals =
 --
 --     * @allNullaryToStringTag = True@ in 'GenericSchemaOptions'
 enumSchema :: DatatypeInfo 'Wire -> SchemaObject
-enumSchema DatatypeInfo{typeName, constructors} =
+enumSchema dtInfo =
+  (tagSchema dtInfo)
+    { title = Just $ T.pack (view #typeName dtInfo)
+    }
+
+-- | Schema for tag values
+tagSchema :: DatatypeInfo 'Wire -> SchemaObject
+tagSchema DatatypeInfo{constructors} =
   (blankSchema String)
-    { title = Just $ T.pack typeName
-    , enum = Just $ T.pack . constructorName <$> constructors
+    { enum = Just $ T.pack . constructorName <$> constructors
     }
 
 -- | How to encode once we decide to use this "Tagged Record" approach.
@@ -281,9 +301,9 @@ enumSchema DatatypeInfo{typeName, constructors} =
 --
 --     * Number of constructors /= 1.
 --
---     * (Trivially true, for now:) only record/selector constructor fields
+--     * Only record/selector constructor fields
 taggedRecordSum :: GenericSchemaOptions -> String -> DatatypeInfo 'Wire -> SchemaObject
-taggedRecordSum opts tag DatatypeInfo{typeName, constructors} =
+taggedRecordSum opts tag dtInfo@DatatypeInfo{typeName, constructors} =
   blankObjectSchema
     { title = Just $ T.pack typeName
     , discriminator =
@@ -294,9 +314,12 @@ taggedRecordSum opts tag DatatypeInfo{typeName, constructors} =
             }
           else Nothing
     , required = Just [T.pack tag]
-    , properties = Just . Properties $ Map.singleton (T.pack tag) (Concrete $ blankSchema String)
+    , properties = Just . Properties $
+      Map.singleton
+        (T.pack tag)
+        (Concrete $ tagSchema dtInfo)
     -- QUESTION: should properties be populated at all when using `oneOf`?
-    , oneOf = Just $ Concrete . constructorSchema <$> constructors
+    , oneOf = Just $ Concrete . recordConstructorSchema <$> constructors
     }
 
 -- | How to encode once we decide to use this "Untagged Record" approach.
@@ -308,38 +331,38 @@ taggedRecordSum opts tag DatatypeInfo{typeName, constructors} =
 --
 --     * Number of constructors /= 1.
 --
---     * (trivially true:) only record/selector constructor fields
+--     * Only record/selector constructor fields
 untaggedRecordSum :: DatatypeInfo 'Wire -> SchemaObject
 untaggedRecordSum DatatypeInfo{typeName, constructors} =
   blankObjectSchema
     { title = Just $ T.pack typeName
-    , oneOf = Just $ Concrete . constructorSchema <$> constructors
+    , oneOf = Just $ Concrete . recordConstructorSchema <$> constructors
     }
 
--- | Populate main fields of a constructor into an object schema.
-constructorSchema :: ConstructorInfo -> SchemaObject
-constructorSchema ConstructorInfo{fields} =
+-- | Populate main fields of a record constructor into an object schema
+recordConstructorSchema :: ConstructorInfo -> SchemaObject
+recordConstructorSchema ConstructorInfo{fields} =
   blankObjectSchema
-    { properties
-        = Just
-        . Properties
-        . Map.fromList $ fields <&> \FieldInfo{selector,schema} ->
-          (T.pack selector, Concrete schema)
-    , required = Just $
-        T.pack . selector <$>
-          filter ((==Required) . requirement) fields
+    { properties =
+        fmap (Properties . Map.fromList) . for fields $ \FieldInfo{selector,schema} -> do
+            sel <- selector
+            Just $ (T.pack sel, Concrete schema)
+    , required =
+        fmap (map fst . filter ((== Required) . snd)) . for fields $ \FieldInfo{selector,requirement} -> do
+          sel <- selector
+          Just $ (T.pack sel, requirement)
     }
 
 -- | For when the schema of a data type is just that of the one constructor.
 singleConstructorSchema :: String -> ConstructorInfo -> SchemaObject
-singleConstructorSchema name = set #title (Just $ T.pack name) . constructorSchema
+singleConstructorSchema name = set #title (Just $ T.pack name) . recordConstructorSchema
 
 -- | Transform constructor and field names from Haskell source to wire format values
 --   according to the functions defined in 'GenericSchemaOptions'.
 transformNames :: GenericSchemaOptions -> DatatypeInfo 'Source -> DatatypeInfo 'Wire
 transformNames opts
-  = over (#constructors . mapped . #constructorName)             (constructorTagModifier opts)
-  . over (#constructors . mapped . #fields . mapped . #selector) (fieldNameModifier opts)
+  = over (#constructors . mapped . #constructorName)                     (constructorTagModifier opts)
+  . over (#constructors . mapped . #fields . mapped . #selector . _Just) (fieldNameModifier opts)
   . switchPhantom
   -- We use a coercion here, but a proper type-changing lens in place of #constructors
   -- would also work
@@ -411,13 +434,15 @@ instance (ToOpenAPISchema a, KnownJSONObject obj)
             (HashMap.toList . objectVal $ Proxy @obj) <&> \(fieldName, val) ->
               addToProperties fieldName (valToSchema val)
 
+arraySchema :: SchemaObject -> SchemaObject
+arraySchema elementSchema = (blankSchema Array) {items = Just $ Concrete elementSchema}
 
 valToSchema :: Aeson.Value -> SchemaObject
 valToSchema = \case
   Aeson.String txt -> (blankSchema String) {enum = Just [txt]}
   Aeson.Bool _ -> blankSchema Boolean
   Aeson.Null -> blankSchema Null
-  Aeson.Array _ -> (blankSchema Array) {items = Just $ Concrete blank}
+  Aeson.Array _ -> arraySchema blank
   Aeson.Object hm -> blankObjectSchema
     { properties
       = Just
