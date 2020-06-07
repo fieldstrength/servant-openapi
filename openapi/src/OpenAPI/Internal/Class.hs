@@ -1,6 +1,7 @@
 {-# LANGUAGE DefaultSignatures    #-}
 {-# LANGUAGE OverloadedLabels     #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# options -w #-}
 
 module OpenAPI.Internal.Class where
 
@@ -13,6 +14,7 @@ import           Data.Functor
 import           Data.Traversable       (for)
 import           Data.Int
 import           Data.Kind              (Type)
+import           Data.Maybe             (isJust)
 import           Data.List.NonEmpty     (NonEmpty)
 import qualified Data.Map.Strict        as Map
 import qualified Data.HashMap.Strict    as HashMap
@@ -25,6 +27,11 @@ import           GHC.Generics
 import           GHC.TypeLits
 import           OpenAPI.Internal.Types
 import           Prelude                hiding (maximum, minimum, not)
+
+import qualified Data.ByteString.Lazy.Char8 as BSC
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Yaml as Yaml
+import qualified Data.Aeson.Deriving as AD (SumEncoding)
 
 -- | Types for which we can produce a 'SchemaObject' that accurately describes the
 --   JSON serialization format.
@@ -83,7 +90,7 @@ data GenericSchemaOptions = GenericSchemaOptions
 data SumEncoding
   = Untagged
   -- | Don't need the other `content` string since we dont support non-record product types.
-  | Tagged String
+  | Tagged String String
   deriving stock (Show, Eq)
 
 defaultSchemaOptions :: GenericSchemaOptions
@@ -233,16 +240,15 @@ mkSchema opts (transformNames opts -> dtInfo)
         & if tagSingleConstructors opts
             then setSingleConstructorTag (T.pack $ constructorName c)
             else id
-  -- Improvement: Handle non-record products here
   | otherwise = case sumEncoding opts of
-      Tagged tag -> taggedRecordSum opts tag dtInfo
+      Tagged tag contents -> taggedRecordSum opts tag contents dtInfo
       Untagged -> untaggedRecordSum dtInfo
 
   where
     setSingleConstructorTag :: Text -> SchemaObject -> SchemaObject
     setSingleConstructorTag tagVal s = case sumEncoding opts of
       Untagged -> s
-      Tagged (T.pack -> tag) -> s
+      Tagged (T.pack -> tag) _contents -> s
         & #properties %~ addToProperties tag (simpleEnumSchema [tagVal])
         & #required %~ maybe (Just [tag]) (Just . (tag :))
 
@@ -260,6 +266,9 @@ isVoid DatatypeInfo{constructors} = length constructors == 0
 isEnum :: DatatypeInfo p -> Bool
 isEnum DatatypeInfo{constructors} =
   all nullary constructors && length constructors > 0
+
+isRecord :: ConstructorInfo -> Bool
+isRecord ConstructorInfo{fields} = all (isJust . selector) fields
 
 nullary :: ConstructorInfo -> Bool
 nullary = (==0) . length . fields
@@ -300,10 +309,8 @@ tagSchema DatatypeInfo{constructors} =
 --     * Conditions for 'enumSchema' not met.
 --
 --     * Number of constructors /= 1.
---
---     * Only record/selector constructor fields
-taggedRecordSum :: GenericSchemaOptions -> String -> DatatypeInfo 'Wire -> SchemaObject
-taggedRecordSum opts tag dtInfo@DatatypeInfo{typeName, constructors} =
+taggedRecordSum :: GenericSchemaOptions -> String -> String -> DatatypeInfo 'Wire -> SchemaObject
+taggedRecordSum opts tag _contents dtInfo@DatatypeInfo{typeName, constructors} =
   blankObjectSchema
     { title = Just $ T.pack typeName
     , discriminator =
@@ -319,8 +326,13 @@ taggedRecordSum opts tag dtInfo@DatatypeInfo{typeName, constructors} =
         (T.pack tag)
         (Concrete $ tagSchema dtInfo)
     -- QUESTION: should properties be populated at all when using `oneOf`?
-    , oneOf = Just $ Concrete . recordConstructorSchema <$> constructors
+    , oneOf = Just $ Concrete . constructorSchema <$> constructors
     }
+
+constructorSchema :: ConstructorInfo -> SchemaObject
+constructorSchema con
+  | isRecord con = recordConstructorSchema con
+  | otherwise    = nonrecordConstructorSchema con
 
 -- | How to encode once we decide to use this "Untagged Record" approach.
 --   This is used when:
@@ -330,13 +342,11 @@ taggedRecordSum opts tag dtInfo@DatatypeInfo{typeName, constructors} =
 --     * Conditions for 'enumSchema' not met.
 --
 --     * Number of constructors /= 1.
---
---     * Only record/selector constructor fields
 untaggedRecordSum :: DatatypeInfo 'Wire -> SchemaObject
 untaggedRecordSum DatatypeInfo{typeName, constructors} =
   blankObjectSchema
     { title = Just $ T.pack typeName
-    , oneOf = Just $ Concrete . recordConstructorSchema <$> constructors
+    , oneOf = Just $ Concrete . constructorSchema <$> constructors
     }
 
 -- | Populate main fields of a record constructor into an object schema
@@ -353,9 +363,21 @@ recordConstructorSchema ConstructorInfo{fields} =
           Just $ (T.pack sel, requirement)
     }
 
+-- | Encoding of a non-record constructor. This is what appears under "contents" when tagging is used.
+--   Only in the case of a single field can we give something meaningful.
+nonrecordConstructorSchema :: ConstructorInfo -> SchemaObject
+nonrecordConstructorSchema ConstructorInfo{fields} = case fields of
+  [] -> blankObjectSchema
+  [FieldInfo{schema}] -> schema
+  _ -> arraySchema blank
+
+
+
 -- | For when the schema of a data type is just that of the one constructor.
 singleConstructorSchema :: String -> ConstructorInfo -> SchemaObject
-singleConstructorSchema name = set #title (Just $ T.pack name) . recordConstructorSchema
+singleConstructorSchema name cInfo
+  | isRecord cInfo = set #title (Just $ T.pack name) $ recordConstructorSchema cInfo
+  | otherwise = set #title (Just $ T.pack name) $ nonrecordConstructorSchema cInfo
 
 -- | Transform constructor and field names from Haskell source to wire format values
 --   according to the functions defined in 'GenericSchemaOptions'.
@@ -401,7 +423,7 @@ data SupportedOptions a
 
 fromAesonSumEncoding :: Aeson.SumEncoding -> SupportedOptions SumEncoding
 fromAesonSumEncoding = \case
-  Aeson.TaggedObject tag _contents -> SupportedOptions $ Tagged tag
+  Aeson.TaggedObject tag contents -> SupportedOptions $ Tagged tag contents
   Aeson.UntaggedValue -> SupportedOptions $ Untagged
   Aeson.ObjectWithSingleField -> UnsupportedObjectWithSingleField
   Aeson.TwoElemArray -> UnsupportedTwoElemArray
@@ -455,3 +477,66 @@ valToSchema = \case
 
 textVal :: KnownSymbol s => Proxy s -> Text
 textVal = T.pack . symbolVal
+
+
+type UntaggedOptions =
+  '[FieldLabelModifier := SnakeCase
+  , AD.SumEncoding := UntaggedValue
+  , OmitNothingFields := 'True
+  , TagSingleConstructors := 'True
+  ]
+type UntaggedEncoded = GenericEncoded UntaggedOptions
+
+type TaggedOptions =
+  '[FieldLabelModifier := SnakeCase
+  , AD.SumEncoding := TaggedObject "TAG" "CONTENTS"
+  , OmitNothingFields := 'True
+  , TagSingleConstructors := 'True
+  ]
+type TaggedEncoded = GenericEncoded TaggedOptions
+
+
+
+data FooBar
+  = MkFoo Foo
+  | MkBar Bar
+  deriving stock (Generic, Show, Eq)
+  deriving (ToOpenAPISchema, Aeson.ToJSON) via UntaggedEncoded FooBar
+
+data Foo = Foo {fooNumber :: Int}
+  deriving stock (Generic, Show, Eq)
+  deriving (ToOpenAPISchema, Aeson.ToJSON) via TaggedEncoded Foo
+
+data Bar = Bar {barNumber :: Int}
+  deriving stock (Generic, Show, Eq)
+  deriving (ToOpenAPISchema, Aeson.ToJSON) via TaggedEncoded Bar
+
+doit :: IO ()
+doit = do
+  Prelude.putStrLn "\n\nFooBar schema: \n\n"
+  Prelude.putStrLn ".\n"
+  BSC.putStrLn . BSL.fromStrict . Yaml.encode . toSchema $ Proxy @FooBar
+  Prelude.putStrLn "\n\nFoo schema: \n\n"
+  Prelude.putStrLn ".\n"
+  BSC.putStrLn . BSL.fromStrict . Yaml.encode . toSchema $ Proxy @Foo
+  Prelude.putStrLn ".\n."
+  Prelude.putStrLn "\n\nFooBar encoded: "
+  BSC.putStrLn . Aeson.encode $ MkFoo $ Foo 9
+
+
+data AB
+  = A Foo
+  | B Bar Int
+  deriving stock (Generic, Show, Eq)
+  deriving (ToOpenAPISchema, Aeson.ToJSON) via TaggedEncoded AB
+
+data CD
+  = C Foo
+  | D Bar Int
+  deriving stock (Generic, Show, Eq)
+  deriving (ToOpenAPISchema, Aeson.ToJSON) via UntaggedEncoded CD
+
+
+
+
+-- $> doit
