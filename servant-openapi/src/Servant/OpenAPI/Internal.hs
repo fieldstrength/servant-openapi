@@ -96,7 +96,7 @@ instance (ToOpenAPISchema a, KnownSymbol name, HasOpenAPI api)
     toEndpointInfo Proxy =
       unsafeMapPathPatterns
         (over #unPathPattern $ (<>) [PathVariable . Text.pack . symbolVal $ Proxy @name])
-        (mapOperations (addParam param) <$> toEndpointInfo (Proxy @api))
+        (mapOperations (addParam param . addParseFailure) <$> toEndpointInfo (Proxy @api))
       where
         param = ParameterObject
           { in_ = Path
@@ -138,19 +138,25 @@ instance (ToOpenAPISchema a, KnownSymbol name, SBoolI (FoldRequired mods), HasOp
           , content = Nothing
           }
 
-instance (ToOpenAPISchema a, KnownSymbol name, SBoolI (FoldRequired mods), HasOpenAPI api)
+instance (ToOpenAPISchema a, KnownSymbol name, SBoolI (FoldRequired mods), SBoolI (FoldLenient mods), HasOpenAPI api)
   => HasOpenAPI
   (Header' mods name a :> api) where
     toEndpointInfo Proxy =
-      mapOperations (addParam param) <$> toEndpointInfo (Proxy @api)
+      mapOperations (addParam param . perhapsAdd400) <$> toEndpointInfo (Proxy @api)
       where
+        perhapsAdd400 = if required || Prelude.not lenient then addParseFailure else id
+        required = case sbool @(FoldRequired mods) of
+            STrue  -> True
+            SFalse -> False
+        lenient :: Bool
+        lenient = case sbool @(FoldLenient mods) of
+            STrue  -> True
+            SFalse -> False
         param = ParameterObject
           { in_ = OpenAPI.Header
           , name = Text.pack . symbolVal $ Proxy @name
           , description = Nothing
-          , required = Just $ case sbool @(FoldRequired mods) of
-              STrue  -> True
-              SFalse -> False
+          , required = Just $ required
           , deprecated = Nothing
           , allowEmptyValue = Just False
           , style = Nothing
@@ -225,8 +231,11 @@ instance
   => HasOpenAPI
     (ReqBody' mods contentTypes a :> api) where
       toEndpointInfo Proxy =
-        mapOperations (set #requestBody . Just $ Concrete body)
-          <$> toEndpointInfo (Proxy @api)
+        toEndpointInfo (Proxy @api) <&>
+          mapOperations
+            ( set #requestBody (Just $ Concrete body)
+            . addParseFailure
+            )
         where
           body = RequestBodyObject
             { description = Nothing
@@ -241,6 +250,17 @@ instance
               STrue  -> False
               SFalse -> True
             }
+
+addParseFailure :: OperationObject -> OperationObject
+addParseFailure = over (#responses . #unResponsesObject) . Map.insert "400" $ Concrete parseFailure400
+
+parseFailure400 :: ResponseObject
+parseFailure400 = ResponseObject
+  { description = "Failure to parse request body or required parameter"
+  , headers = Nothing
+  , content = Nothing
+  , links = Nothing
+  }
 
 instance (v ~ Verb verb status contentTypes returned, HasOperation v, IsVerb verb)
   => HasOpenAPI
