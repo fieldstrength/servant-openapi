@@ -24,7 +24,7 @@ import qualified Data.Text            as Text
 import           GHC.Generics         (Generic (..))
 import           Prelude              hiding (head)
 
--- Aeson encoding settings
+-- | Serialization settings for OpenAPI library types.
 type CamelCaseOpts =
   '[ FieldLabelModifier :=
       DropSuffix "_"  -- haskell keyworks suffixed with '_': type_, in_, default_
@@ -33,7 +33,7 @@ type CamelCaseOpts =
 
 type LowercaseEnum = '[ ConstructorTagModifier := Lowercase ]
 
-
+-- | This is the root document object of the OpenAPI document.
 data OpenAPI = OpenAPI
   { openapi :: Text
     -- ^ This string MUST be the semantic version number of the OpenAPI
@@ -92,10 +92,12 @@ apiTags = #tags
 apiExternalDocs :: Lens' OpenAPI (Maybe ExternalDocumentationObject)
 apiExternalDocs = #externalDocs
 
-
+-- | Holds the relative paths to the individual endpoints and their operations. The path is
+--   appended to the URL from the Server Object in order to construct the full URL. The
+--   Paths MAY be empty, due to ACL constraints.
 type PathsObject = Map PathPattern PathItemObject
 
-
+-- | Provides metadata about the API. The metadata MAY be used by tooling as required.
 data InfoObject = InfoObject
   { title :: Text
     -- ^ The title of the API
@@ -134,6 +136,7 @@ infoLicense = #license
 infoVersion :: Lens' InfoObject Text
 infoVersion = #version
 
+-- | An object representing a Server.
 data ServerObject = ServerObject
   { url :: Text
     -- ^ A URL to the target host. This URL supports Server Variables and MAY
@@ -156,6 +159,7 @@ serverUrl = #url
 serverDescription :: Lens' ServerObject (Maybe Text)
 serverDescription = #description
 
+-- | An object representing a Server Variable for server URL template substitution.
 data ServerVariableObject = ServerVariableObject
   { enum :: Maybe [Text]
     -- ^ An enumeration of string values to be used if the substitution options
@@ -173,6 +177,8 @@ data ServerVariableObject = ServerVariableObject
   deriving stock (Generic, Show, Eq)
   deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ServerVariableObject
 
+-- | Adds metadata to a single tag that is used by the Operation Object. It is not mandatory
+--   to have a Tag Object per tag defined in the Operation Object instances.
 data TagObject = TagObject
   { name :: Text
     -- ^ The name of the tag
@@ -194,6 +200,7 @@ tagDescription = #description
 tagExternalDocs :: Lens' TagObject (Maybe ExternalDocumentationObject)
 tagExternalDocs = #externalDocs
 
+-- | Allows referencing an external resource for extended documentation.
 data ExternalDocumentationObject = ExternalDocumentationObject
   { url :: Text
     -- ^ A short description of the target documentation. CommonMark syntax MAY
@@ -211,6 +218,7 @@ externalDocsUrl = #url
 externalDocsDescription :: Lens' ExternalDocumentationObject (Maybe Text)
 externalDocsDescription = #description
 
+-- | License information for the exposed API.
 data LicenseObject = LicenseObject
   { name :: Text
     -- ^ The license name used for the API
@@ -226,6 +234,7 @@ licenseName = #name
 licenseUrl :: Lens' LicenseObject (Maybe Text)
 licenseUrl = #url
 
+-- | Contact information for the exposed API.
 data ContactObject = ContactObject
   { name :: Maybe Text
     -- ^ The identifying name of the contact person/organization
@@ -292,7 +301,9 @@ data PathPatternPiece
 instance IsString PathPattern where
   fromString = pathPatternFromText' . Text.pack
 
-
+-- | Describes the operations available on a single path. A Path Item MAY be empty, due to
+--   ACL constraints. The path itself is still exposed to the documentation viewer but they
+--   will not know which operations and parameters are available.
 data PathItemObject = PathItemObject
   { summary ::  Maybe Text
     -- ^ An optional, string summary, intended to apply to all operations in
@@ -356,7 +367,7 @@ allOperations = allOperationsMay . _Just
 mapOperations :: (OperationObject -> OperationObject) -> PathItemObject -> PathItemObject
 mapOperations = over allOperations
 
-
+-- | Describes a single API operation on a path.
 data OperationObject = OperationObject
   { tags :: Maybe [Text]
     -- ^ A list of tags for API documentation control. Tags can be used for
@@ -413,6 +424,9 @@ data OperationObject = OperationObject
   deriving stock (Generic, Show, Eq)
   deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts OperationObject
 
+-- | Holds a set of reusable objects for different aspects of the OAS. All objects defined
+--   within the components object will have no effect on the API unless they are explicitly
+--   referenced from properties outside the components object.
 data ComponentsObject = ComponentsObject
   { schemas         :: Maybe (Map Text (ReferenceOr SchemaObject))
     -- ^ An object to hold reusable Schema Objects
@@ -470,6 +484,8 @@ deriving via GenericEncoded '[SumEncoding := UntaggedValue] (ReferenceOr a)
 deriving via GenericEncoded '[SumEncoding := UntaggedValue] (ReferenceOr a)
   instance ToJSON a => ToJSON (ReferenceOr a)
 
+-- | Describes a single response from an API Operation, including design-time, static
+--   links to operations based on the response.
 data ResponseObject = ResponseObject
   { description :: Text
     -- ^ A short description of the response. CommonMark syntax MAY be used for
@@ -491,6 +507,8 @@ data ResponseObject = ResponseObject
   deriving stock (Generic, Show, Eq)
   deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ResponseObject
 
+-- | Describes a single operation parameter. A unique parameter is defined by a combination
+--   of a name and location.
 data ParameterObject = ParameterObject
   { name :: Text
     -- ^ The name of the parameter. Parameter names are case sensitive.
@@ -564,7 +582,7 @@ data ParameterObject = ParameterObject
   deriving stock (Generic, Show, Eq)
   deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ParameterObject
 
--- | The @in@ field as an enum
+-- | Valid parameter locations
 data ParameterIn
   = Query
   | Header
@@ -573,6 +591,7 @@ data ParameterIn
   deriving stock (Generic, Show, Eq)
   deriving (FromJSON, ToJSON) via GenericEncoded LowercaseEnum ParameterIn
 
+-- | The recognized values for the `style` field of a 'ParameterObject'.
 data StyleValue
   = Matrix
     -- ^ Path-style parameters defined by RFC6570
@@ -621,6 +640,7 @@ data ExampleObject = ExampleObject
   deriving stock (Generic, Show, Eq)
   deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ExampleObject
 
+-- | Describes a single request body.
 data RequestBodyObject = RequestBodyObject
   { description :: Maybe Text
     -- ^ A brief description of the request body. This could contain examples
@@ -674,6 +694,7 @@ data HeaderObject = HeaderObject
   deriving stock (Generic, Show, Eq)
   deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts HeaderObject
 
+-- | Defines a security scheme that can be used by the operations.
 data SecuritySchemeObject = SecuritySchemeObject
   { type_ :: SecuritySchemaType
     -- ^ The type of the security scheme. Valid values are "apiKey", "http",
@@ -725,6 +746,7 @@ newtype MediaType = MediaType Text
   deriving stock (Generic, Show, Eq, Ord)
   deriving newtype (FromJSON, ToJSON, FromJSONKey, ToJSONKey, IsString)
 
+-- | Allows configuration of the supported OAuth Flows.
 data OathFlowsObject = OauthFlowsObject
   { implicit :: Maybe ImplicitOauthFlowObject
     -- ^ Configuration for the OAuth Implicit flow
@@ -747,6 +769,12 @@ data Discriminator = Discriminator
   deriving stock (Generic, Show, Eq)
   deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts Discriminator
 
+-- | The Schema Object allows the definition of input and output data types. These types can
+--   be objects, but also primitives and arrays. This object is an extended subset of the
+--   JSON Schema Specification Wright Draft 00.
+--
+--   For more information about the properties, see JSON Schema Core and JSON Schema Validation.
+--   Unless stated otherwise, the property definitions follow the JSON Schema.
 data SchemaObject = SchemaObject
   { title :: Maybe Text
     -- ^ The name of the schema
@@ -889,7 +917,8 @@ newtype Properties = Properties { unProperties :: Map Text (ReferenceOr SchemaOb
   deriving stock (Generic, Show, Eq)
   deriving newtype (FromJSON, ToJSON)
 
--- | In practice this is where the actual schema is.
+-- | Each Media Type Object provides schema and examples for the media type identified by
+--   its key.
 data MediaTypeObject = MediaTypeObject
   { schema :: Maybe (ReferenceOr SchemaObject)
     -- ^ The schema defining the content of the request, response, or
