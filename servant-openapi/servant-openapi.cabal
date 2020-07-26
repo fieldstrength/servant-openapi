@@ -1,7 +1,7 @@
 name:
   servant-openapi
 version:
-  0.0.0.1
+  0.1.0
 synopsis:
   OpenAPI definition for your Servant API
 description:
