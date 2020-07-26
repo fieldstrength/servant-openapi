@@ -171,12 +171,12 @@ instance (HasOpenAPI l, HasOpenAPI r)
   => HasOpenAPI
     (l :<|> r) where
       toEndpointInfo Proxy =
-        Map.unionWith fish
+        Map.unionWith combinePathItems
           (toEndpointInfo $ Proxy @l)
           (toEndpointInfo $ Proxy @r)
 
-fish :: PathItemObject -> PathItemObject -> PathItemObject
-fish x y = PathItemObject
+combinePathItems :: PathItemObject -> PathItemObject -> PathItemObject
+combinePathItems x y = PathItemObject
   { summary     = view #summary x      <|> view #summary y
   , description = view #description x  <|> view #description y
   , get         = view #get x          <|> view #get y
