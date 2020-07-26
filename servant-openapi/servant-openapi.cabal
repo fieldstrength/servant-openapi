@@ -3,9 +3,11 @@ name:
 version:
   0.1.0
 synopsis:
-  OpenAPI definition for your Servant API
+  Generates the OpenAPI definition for your Servant API
 description:
-  Implements the OpenAPI 3.0.3 spec for use with the Servant library
+  Generates the OpenAPI 3.0.3 definition for your Servant API.
+
+  For examples and further information see <https://github.com/felixmulder/servant-openapi the README>.
 bug-reports:
   https://github.com/felixmulder/servant-openapi
 cabal-version:
@@ -55,8 +57,6 @@ library
     ScopedTypeVariables
     StandaloneDeriving
     TupleSections
-    TypeApplications
-    TypeApplications
     TypeApplications
     TypeOperators
     ViewPatterns
@@ -131,8 +131,6 @@ test-suite servant-openapi-tests
     ScopedTypeVariables
     StandaloneDeriving
     TupleSections
-    TypeApplications
-    TypeApplications
     TypeApplications
     TypeOperators
     ViewPatterns
