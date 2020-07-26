@@ -5,12 +5,12 @@
 
 packages:
 - completed:
-    hackage: aeson-deriving-0.1.0.0@sha256:cac379989e4804809a019a13c773c9a5194dc9d1d3bd90746240eb00f22e684e,2611
+    hackage: aeson-deriving-0.1.1.1@sha256:0b2b6dfdfdf57bb6b3db5978a9e60ba6345b7d48fa254cddb2c76da7d96f8c26,2714
     pantry-tree:
-      size: 1019
-      sha256: b586cdcdd859e5db9a48706b4a1da601ea5af6bca6a653ede42ad2b21d8b2b0f
+      size: 1168
+      sha256: 9c4c294da10e954ccbea31e9784b9983426359c3ba2be1815bbb10026b752a3e
   original:
-    hackage: aeson-deriving-0.1.0.0
+    hackage: aeson-deriving-0.1.1.1
 snapshots:
 - completed:
     size: 491372
