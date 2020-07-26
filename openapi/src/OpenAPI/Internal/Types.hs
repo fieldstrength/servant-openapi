@@ -750,9 +750,10 @@ data SecuritySchemeObject = SecuritySchemeObject
   deriving stock (Generic, Show, Eq)
   deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts SecuritySchemeObject
 
-newtype SecuritySchemaType = SecuritySchemaType Text
-  deriving stock (Generic, Show, Eq)
-  deriving newtype (FromJSON, ToJSON, IsString)
+data SecuritySchemaType = ApiKey | Http | Oauth2 | OpenIdConnect
+  deriving stock (Generic, Show, Eq, Ord)
+  deriving (FromJSON, ToJSON)
+    via GenericEncoded '[ConstructorTagModifier := FirstChar Lowercase] SecuritySchemaType
 
 newtype MediaType = MediaType Text
   deriving stock (Generic, Show, Eq, Ord)
