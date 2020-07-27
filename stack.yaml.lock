@@ -5,15 +5,15 @@
 
 packages:
 - completed:
-    hackage: aeson-deriving-0.1.1.1@sha256:0b2b6dfdfdf57bb6b3db5978a9e60ba6345b7d48fa254cddb2c76da7d96f8c26,2714
+    hackage: aeson-deriving-0.1.1.2@sha256:e7be3f84464baa72c3bd61d60b9035e00637b6fb88cf464322ce773340963b6b,2752
     pantry-tree:
-      size: 1168
-      sha256: 9c4c294da10e954ccbea31e9784b9983426359c3ba2be1815bbb10026b752a3e
+      size: 1247
+      sha256: f38b67412d2fb2f757d8446033fc903b619116c63ec043e3c4a749867cc375ff
   original:
-    hackage: aeson-deriving-0.1.1.1
+    hackage: aeson-deriving-0.1.1.2
 snapshots:
 - completed:
-    size: 491372
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/15/2.yaml
-    sha256: a98d091d911606d0d8adccbeb811b81bbd8cc2d888f99ef9e273350e8e9692a8
-  original: lts-15.2
+    size: 563100
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/17/0.yaml
+    sha256: e93a85871577ea3423d5f3454b2b6bd37c2c2123c79faf511dfb64f5b49a9f8b
+  original: lts-17.0
