@@ -147,6 +147,6 @@ test-suite servant-openapi-tests
     , base                      >= 4.9  && < 5
     , bytestring                >= 0.10 && < 0.11
     , hedgehog                  >= 0.6  && < 1.1
-    , servant                   >= 0.16 && < 0.17
+    , servant                   >= 0.16 && < 0.18
     , text                      >= 1.2  && < 1.3
     , yaml                      >= 0.11 && < 0.12
