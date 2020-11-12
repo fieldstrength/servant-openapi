@@ -5,4 +5,4 @@ packages:
     - servant-openapi
 
 extra-deps:
-    - aeson-deriving-0.1.1.1
+    - aeson-deriving-0.1.1.2
