@@ -1,6 +1,8 @@
-{-# LANGUAGE DefaultSignatures    #-}
-{-# LANGUAGE OverloadedLabels     #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE OverloadedLabels      #-}
+{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE GADTs #-}
 
 module OpenAPI.Internal.Class where
 
@@ -475,6 +477,76 @@ instance (ToOpenAPISchema a, KnownJSONObject obj)
     toSchema Proxy = toSchema $
       Proxy @(WithConstantFieldsIn obj (WithConstantFieldsOut obj a))
 
+
+----------------------------  aeson-deriving support: RecordSumEncoded ----------------------------
+
+-- | A class for data types with one constructor
+class GSingleConstructor (f :: Type -> Type) where
+  singleConstructorName :: Proxy f -> String
+
+instance (KnownSymbol cons)
+  => GSingleConstructor (C1 ('MetaCons cons fx sl) f) where
+    singleConstructorName Proxy = symbolVal $ Proxy @cons
+
+instance GSingleConstructor f => GSingleConstructor (D1 meta f) where
+  singleConstructorName Proxy = singleConstructorName $ Proxy @f
+
+instance (KnownSymbol tagName, GAllRecordSumConstructors (Rep a), StringFunction strFunction)
+  => ToOpenAPISchema (RecordSumEncoded tagName strFunction a) where
+    toSchema Proxy = blankObjectSchema
+      { properties = Just . Properties $ Map.fromList
+        [ (T.pack $ symbolVal (Proxy @tagName), Concrete $ simpleEnumSchema tagVals)
+        ]
+      , oneOf = Just $ Concrete . innerSchema <$> innerSchemas
+      }
+
+      where
+        innerSchemas = allRecordSumConstructors $ Proxy @(Rep a)
+        tagModifier = stringFunction (Proxy @strFunction)
+        tagVals = do
+          s <- innerSchemas
+          [T.pack . tagModifier $ innerConstructorName s]
+
+
+-- The main use of RecordSumEncoded has each inner payload type with exactly one constructor
+-- For OpenAPI generation we actually adopt this expectation as a requirement, whereas in
+-- aeson-deriving this restriction is not needed.
+data RecordSumConstructorInfo = RecordSumConstructorInfo
+  { innerConstructorName :: String
+  , innerSchema :: SchemaObject
+  } deriving (Show, Eq)
+
+-- | To generate the schema for a RecordSumEncoded type we need, for each constructor:
+--     * The constructor has exactly one field
+--     * Within that field is a data type with exactly one constructor
+class GRecordSumConstructor (f :: Type -> Type) where
+  recordSumConstructorInfo :: Proxy f -> RecordSumConstructorInfo
+
+instance (ToOpenAPISchema a, GSingleConstructor (Rep a)) =>
+  GRecordSumConstructor (C1 meta (S1 metaS (Rec0 a))) where
+    recordSumConstructorInfo Proxy = RecordSumConstructorInfo
+      { innerConstructorName = singleConstructorName $ Proxy @(Rep a)
+      , innerSchema = toSchema $ Proxy @a
+      }
+
+class GAllRecordSumConstructors (f :: Type -> Type) where
+  allRecordSumConstructors :: Proxy f -> [RecordSumConstructorInfo]
+
+instance (KnownSymbol cons, ToOpenAPISchema a) => GAllRecordSumConstructors (C1 ('MetaCons cons fx sl) (S1 metaS (Rec0 a))) where
+  allRecordSumConstructors Proxy = pure @[] $
+    RecordSumConstructorInfo
+      { innerConstructorName = symbolVal $ Proxy @cons
+      , innerSchema = toSchema $ Proxy @a
+      }
+
+instance (GAllRecordSumConstructors l, GAllRecordSumConstructors r)
+  => GAllRecordSumConstructors (l :+: r) where
+    allRecordSumConstructors Proxy =
+      allRecordSumConstructors (Proxy @l) <>
+      allRecordSumConstructors (Proxy @r)
+
+
+--------------------------------------- utils ---------------------------------------
 
 arraySchema :: SchemaObject -> SchemaObject
 arraySchema elementSchema = (blankSchema Array) {items = Just $ Concrete elementSchema}
