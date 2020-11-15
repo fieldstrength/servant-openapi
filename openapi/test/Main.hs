@@ -1,21 +1,26 @@
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE QuasiQuotes      #-}
 {-# LANGUAGE TemplateHaskell  #-}
 
 module Main where
 
-import           Control.Monad               (void)
-import           Data.Aeson                  as Aeson
-import           Data.Aeson.Deriving         as AD
-import           Data.Yaml                   as Yaml
+import           Control.Monad       (void)
+import           Data.Aeson          as Aeson
+import           Data.Aeson.Deriving as AD
+import           Data.Proxy
+import           Data.Yaml           as Yaml
 import           GHC.Generics
 import           Hedgehog
-import           Hedgehog.Main               (defaultMain)
+import           Hedgehog.Main       (defaultMain)
 import           OpenAPI
-
+import           Text.RawString.QQ   (r)
 
 main :: IO ()
 main = do
     defaultMain [checkParallel $$(discover)]
+
+once :: Property -> Property
+once = withTests 1
 
 prop_decode_petstore :: Property
 prop_decode_petstore = once . property . evalIO $
@@ -25,11 +30,35 @@ prop_decode_petstore_extended :: Property
 prop_decode_petstore_extended = once . property . evalIO $
   void $ decodeFileThrow @_ @OpenAPI "examples/petstore.yaml"
 
+data Foo = Foo {fooNumber :: Int, fooBoolean :: Maybe Bool}
+  deriving stock (Generic, Show, Eq)
+  deriving (ToOpenAPISchema, ToJSON) via
+    GenericEncoded
+     '[ FieldLabelModifier := SnakeCase
+      , AD.SumEncoding := TaggedObject "TAG" "CONTENTS"
+      , OmitNothingFields := 'True
+      , TagSingleConstructors := 'True
+      ]
+      Foo
 
-once :: Property -> Property
-once = withTests 1
-
-
+prop_foo_schema :: Property
+prop_foo_schema = once . property $
+  (Right . toSchema) (Proxy @Foo) === Yaml.decodeEither [r|
+title: Foo
+type: object
+properties:
+  TAG:
+    type: string
+    enum:
+      - Foo
+  foo_number:
+    type: integer
+  foo_boolean:
+    type: boolean
+required:
+  - TAG
+  - foo_number
+|]
 
 
 type UntaggedOptions =
@@ -55,10 +84,6 @@ data FooBar
   | MkBar Bar
   deriving stock (Generic, Show, Eq)
   deriving (ToOpenAPISchema, ToJSON) via UntaggedEncoded FooBar
-
-data Foo = Foo {fooNumber :: Int}
-  deriving stock (Generic, Show, Eq)
-  deriving (ToOpenAPISchema, ToJSON) via TaggedEncoded Foo
 
 data Bar = Bar {barNumber :: Int}
   deriving stock (Generic, Show, Eq)
