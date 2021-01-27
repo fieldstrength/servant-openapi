@@ -7,6 +7,7 @@ module OpenAPI.Internal.Class where
 import           Control.Lens           hiding (enum)
 import qualified Data.Aeson             as Aeson
 import           Data.Aeson.Deriving    hiding (SumEncoding)
+import qualified Data.Aeson.Deriving as AD
 import           Data.Coerce            (coerce)
 import           Data.Function
 import           Data.Functor
@@ -475,6 +476,14 @@ instance (ToOpenAPISchema a, KnownJSONObject obj)
     toSchema Proxy = toSchema $
       Proxy @(WithConstantFieldsIn obj (WithConstantFieldsOut obj a))
 
+
+------------------------  aeson-deriving support: RecordSumEncoded -----------------------
+
+instance (GToOpenAPI (Rep a)) => ToOpenAPISchema (RecordSumEncoded tagStr tagFun a) where
+  toSchema Proxy = toSchema $ Proxy @(GenericEncoded '[AD.SumEncoding := UntaggedValue] a)
+
+
+-----------------------------------------  Utils  ----------------------------------------
 
 arraySchema :: SchemaObject -> SchemaObject
 arraySchema elementSchema = (blankSchema Array) {items = Just $ Concrete elementSchema}
