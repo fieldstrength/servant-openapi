@@ -482,6 +482,15 @@ instance (ToOpenAPISchema a, KnownJSONObject obj)
 instance (GToOpenAPI (Rep a)) => ToOpenAPISchema (RecordSumEncoded tagStr tagFun a) where
   toSchema Proxy = toSchema $ Proxy @(GenericEncoded '[AD.SumEncoding := UntaggedValue] a)
 
+-- | Type wrapper for adding a description to the schema for your data type.
+--   Mainly intended to be used with DerivingVia.
+newtype Description (str :: Symbol) (a :: Type) = Description a
+  deriving newtype (Aeson.FromJSON, Aeson.ToJSON)
+
+instance (KnownSymbol str, ToOpenAPISchema a) => ToOpenAPISchema (Description str a) where
+  toSchema Proxy =
+    (toSchema $ Proxy @a)
+      & set #description (Just . T.pack . symbolVal $ Proxy @str)
 
 -----------------------------------------  Utils  ----------------------------------------
 
