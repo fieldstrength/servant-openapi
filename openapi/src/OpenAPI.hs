@@ -8,6 +8,9 @@ module OpenAPI
   -- ** Entrypoint function for schema deriving
   , genericToSchema
 
+  -- ** Type for adding a description with DerivingVia
+  , Description(..)
+
   -- * Handling References
   , pruneAndReference
   , pruneSchema
