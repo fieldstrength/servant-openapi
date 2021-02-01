@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RecordWildCards  #-}
+{-# LANGUAGE StrictData       #-}
 
 module OpenAPI.Internal.References where
 
@@ -7,8 +8,8 @@ import           Prelude hiding (not, maximum, minimum)
 
 import           Control.Lens hiding (enum, allOf, anyOf)
 import           Control.Monad.Trans.Accum
-import           Data.Map                   (Map)
-import qualified Data.Map                   as Map
+import           Data.Map.Strict            (Map)
+import qualified Data.Map.Strict            as Map
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
 import           Data.Maybe                 ()
