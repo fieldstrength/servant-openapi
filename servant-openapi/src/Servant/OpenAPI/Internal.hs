@@ -272,6 +272,16 @@ instance (v ~ Verb verb status contentTypes returned, HasOperation v, IsVerb ver
             (Just . view #operation . toOperation $ Proxy @v)
             blankPathItem
 
+instance (v ~ NoContentVerb verb, HasOperation v, IsVerb verb)
+  => HasOpenAPI
+    (NoContentVerb verb) where
+      toEndpointInfo Proxy =
+        Map.singleton (PathPattern []) $
+          set
+            (verbLens . toVerb $ Proxy @verb)
+            (Just . view #operation . toOperation $ Proxy @v)
+            blankPathItem
+
 blankPathItem :: PathItemObject
 blankPathItem = PathItemObject
   { summary = Nothing
@@ -314,6 +324,40 @@ instance (KnownNat status, HasResponse response)
             . Concrete
             . toResponseObject
             $ Proxy @response
+        , callbacks = Nothing
+        , deprecated = Nothing
+        , security = Nothing
+        , servers = Nothing
+        }
+      }
+
+instance HasOperation (NoContentVerb verb) where
+    toOperation Proxy = VerbOperation
+      { status = 204
+      , operation = OperationObject
+        { tags = Nothing
+        , summary = Nothing
+        , description = Nothing
+        , externalDocs = Nothing
+        , operationId = Nothing
+        , parameters = Nothing
+        , requestBody = Nothing
+        , responses
+            = ResponsesObject
+            . Map.singleton "204"
+            . Concrete
+            $ ResponseObject
+                { description = "Successful no-content response"
+                , headers = Nothing
+                , content = Just $ Map.singleton applicationJson
+                  MediaTypeObject
+                    { schema = Nothing
+                    , example = Nothing
+                    , examples = Nothing
+                    , encoding = Nothing
+                    }
+                , links = Nothing
+                }
         , callbacks = Nothing
         , deprecated = Nothing
         , security = Nothing
