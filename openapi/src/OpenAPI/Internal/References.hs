@@ -112,6 +112,16 @@ pruneSchema = over nestedSchemas $ \case
 toReference :: Text -> ReferenceOr a
 toReference name = Ref . ReferenceObject $ localRefPrefix <> name
 
+-- | Given any 'Traversable' container of 'SchemaObject's, compile the fully referenced definition
+--   environment. In the context of OpenAPI specs, you usually prefer to use 'pruneAndReference' instead.
+--   This function on the other hand is useful if you only want definitions for serialization formats,
+--   in a potentially different context than an HTTP API.
+gatherSchemaEnvironment :: Traversable f => f SchemaObject -> Map Text SchemaObject
+gatherSchemaEnvironment
+  = definitions
+  . flip execAccum mempty
+  . traverse defineAndPruneSchema
+  . fmap Concrete
 
 nestedSchemas :: Traversal' SchemaObject (ReferenceOr SchemaObject)
 nestedSchemas f SchemaObject{..} =
