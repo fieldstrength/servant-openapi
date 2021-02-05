@@ -14,6 +14,7 @@ module OpenAPI
   -- * Handling References
   , pruneAndReference
   , pruneSchema
+  , gatherSchemaEnvironment
 
   -- * OpenAPI types
 
