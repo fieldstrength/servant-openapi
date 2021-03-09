@@ -13,6 +13,7 @@ import           Control.Monad        ((>=>))
 import           Data.Aeson           hiding (Object)
 import qualified Data.Aeson           as Aeson (Value)
 import           Data.Aeson.Deriving
+import           Data.Aeson.Types     (toJSONKeyText)
 import           Data.Function        ((&))
 import           Data.Functor         ((<&>))
 import           Data.Generics.Labels ()
@@ -262,7 +263,7 @@ newtype PathPattern = PathPattern {unPathPattern :: [PathPatternPiece]}
 
 instance FromJSON PathPattern where parseJSON = withText "String" $ either fail pure . pathPatternFromText
 instance ToJSON PathPattern where toJSON = Data.Aeson.String . pathPatternToText
-instance ToJSONKey PathPattern
+instance ToJSONKey PathPattern where toJSONKey = toJSONKeyText pathPatternToText
 instance FromJSONKey PathPattern where fromJSONKey = FromJSONKeyText pathPatternFromText'
 
 pathPatternFromText :: Text -> Either String PathPattern

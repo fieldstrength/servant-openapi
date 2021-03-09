@@ -6,6 +6,7 @@ module Main where
 import           Control.Monad               (void)
 import           Data.Aeson                  as Aeson
 import           Data.Aeson.Deriving         as AD
+import qualified Data.Map                    as Map (empty)
 import           Data.Yaml                   as Yaml
 import           GHC.Generics
 import           Hedgehog
@@ -24,6 +25,10 @@ prop_decode_petstore = once . property . evalIO $
 prop_decode_petstore_extended :: Property
 prop_decode_petstore_extended = once . property . evalIO $
   void $ decodeFileThrow @_ @OpenAPI "examples/petstore-expanded.yaml"
+
+prop_encode_paths_object_as_json_object :: Property
+prop_encode_paths_object_as_json_object = once . property $ do
+  toJSON (Map.empty :: PathsObject) === Aeson.object []
 
 
 
