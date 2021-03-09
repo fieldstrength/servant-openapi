@@ -33,6 +33,12 @@ type PackageOpts =
   , OmitNothingFields := 'True
   ]
 
+type CamelCaseOpts =
+  '[ FieldLabelModifier :=
+      DropSuffix "_"  -- haskell keyworks suffixed with '_': type_, in_, default_
+  , OmitNothingFields := 'True
+  ]
+
 type LowercaseEnum = '[ ConstructorTagModifier := Lowercase ]
 
 
@@ -116,7 +122,7 @@ data InfoObject = InfoObject
     --   OpenAPI Specification version or the API implementation version)
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts InfoObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts InfoObject
 
 infoTitle :: Lens' InfoObject Text
 infoTitle = #title
@@ -413,7 +419,7 @@ data OperationObject = OperationObject
     --   be overridden by this value.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts OperationObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts OperationObject
 
 data ComponentsObject = ComponentsObject
   { schemas         :: Maybe (Map Text (ReferenceOr SchemaObject))
@@ -836,7 +842,7 @@ data SchemaObject = SchemaObject
     --   can be "foo" but cannot be 1.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts SchemaObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts SchemaObject
 
 blank :: SchemaObject
 blank = SchemaObject

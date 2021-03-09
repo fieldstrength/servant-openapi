@@ -26,6 +26,20 @@ prop_decode_petstore_extended :: Property
 prop_decode_petstore_extended = once . property . evalIO $
   void $ decodeFileThrow @_ @OpenAPI "examples/petstore-expanded.yaml"
 
+prop_roundtrip_petstore :: Property
+prop_roundtrip_petstore = once . property $ do
+  yaml <- evalIO $ decodeFileThrow @_ @Value "examples/petstore.yaml"
+  openapi <- either error pure . parseEither (parseJSON @OpenAPI) $ yaml
+
+  toJSON openapi === yaml
+
+prop_roundtrip_petstore_extended :: Property
+prop_roundtrip_petstore_extended = once . property $ do
+  yaml <- evalIO $ decodeFileThrow @_ @Value "examples/petstore-expanded.yaml"
+  openapi <- either error pure . parseEither (parseJSON @OpenAPI) $ yaml
+
+  toJSON openapi === yaml
+
 prop_encode_paths_object_as_json_object :: Property
 prop_encode_paths_object_as_json_object = once . property $ do
   toJSON (Map.empty :: PathsObject) === Aeson.object []
