@@ -23,7 +23,8 @@ prop_decode_petstore = once . property . evalIO $
 
 prop_decode_petstore_extended :: Property
 prop_decode_petstore_extended = once . property . evalIO $
-  void $ decodeFileThrow @_ @OpenAPI "examples/petstore.yaml"
+  void $ decodeFileThrow @_ @OpenAPI "examples/petstore-expanded.yaml"
+
 
 
 once :: Property -> Property
