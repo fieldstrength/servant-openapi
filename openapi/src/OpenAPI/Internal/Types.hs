@@ -25,14 +25,6 @@ import           GHC.Generics         (Generic (..))
 import           Prelude              hiding (head)
 
 -- Aeson encoding settings
-type PackageOpts =
-  '[ FieldLabelModifier :=
-      [ SnakeCase
-      , DropSuffix "_"  -- haskell keyworks suffixed with '_': type_, in_, default_
-      ]
-  , OmitNothingFields := 'True
-  ]
-
 type CamelCaseOpts =
   '[ FieldLabelModifier :=
       DropSuffix "_"  -- haskell keyworks suffixed with '_': type_, in_, default_
@@ -77,7 +69,7 @@ data OpenAPI = OpenAPI
     -- ^ Additional external documentation
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts OpenAPI
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts OpenAPI
 
 apiInfo :: Lens' OpenAPI InfoObject
 apiInfo = #info
@@ -156,7 +148,7 @@ data ServerObject = ServerObject
     --   substitution in the server's URL template.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts ServerObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ServerObject
 
 serverUrl :: Lens' ServerObject Text
 serverUrl = #url
@@ -179,7 +171,7 @@ data ServerVariableObject = ServerVariableObject
     --   be used for rich text representation.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts ServerVariableObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ServerVariableObject
 
 data TagObject = TagObject
   { name :: Text
@@ -191,7 +183,7 @@ data TagObject = TagObject
     -- ^ Additional external documentation for this tag
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts TagObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts TagObject
 
 tagName :: Lens' TagObject Text
 tagName = #name
@@ -211,7 +203,7 @@ data ExternalDocumentationObject = ExternalDocumentationObject
     --   URL
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts ExternalDocumentationObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ExternalDocumentationObject
 
 externalDocsUrl :: Lens' ExternalDocumentationObject Text
 externalDocsUrl = #url
@@ -226,7 +218,7 @@ data LicenseObject = LicenseObject
     -- ^ A URL to the license used for the API. MUST be in the format of a URL
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts LicenseObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts LicenseObject
 
 licenseName :: Lens' LicenseObject Text
 licenseName = #name
@@ -245,7 +237,7 @@ data ContactObject = ContactObject
     --   format of an email address
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts ContactObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ContactObject
 
 contactName :: Lens' ContactObject (Maybe Text)
 contactName = #name
@@ -258,7 +250,7 @@ contactEmail = #email
 
 data SecurityRequirementObject = SecurityRequirementObject -- FIXME
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts SecurityRequirementObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts SecurityRequirementObject
 
 newtype PathPattern' = PathPattern' Text
   deriving stock (Generic, Show, Eq, Ord)
@@ -339,7 +331,7 @@ data PathItemObject = PathItemObject
     --   because otherwise interpreting :<|> would give incorrect results.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts PathItemObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts PathItemObject
 
 
 allOperationsMay :: Traversal' PathItemObject (Maybe OperationObject)
@@ -442,7 +434,7 @@ data ComponentsObject = ComponentsObject
     -- ^ An object to hold reusable Callback Objects
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts ComponentsObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ComponentsObject
 
 emptyComponents :: ComponentsObject
 emptyComponents = ComponentsObject
@@ -497,7 +489,7 @@ data ResponseObject = ResponseObject
     --   constraints of the names for Component Objects.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts ResponseObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ResponseObject
 
 data ParameterObject = ParameterObject
   { name :: Text
@@ -570,7 +562,7 @@ data ParameterObject = ParameterObject
   --   entry.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts ParameterObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ParameterObject
 
 -- | The @in@ field as an enum
 data ParameterIn
@@ -627,7 +619,7 @@ data ExampleObject = ExampleObject
     --   'externalValue' field are mutually exclusive.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts ExampleObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ExampleObject
 
 data RequestBodyObject = RequestBodyObject
   { description :: Maybe Text
@@ -643,7 +635,7 @@ data RequestBodyObject = RequestBodyObject
     --   false
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts RequestBodyObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts RequestBodyObject
 
 data HeaderObject = HeaderObject
   { description :: Maybe Text
@@ -680,7 +672,7 @@ data HeaderObject = HeaderObject
   --   examples value SHALL override the example provided by the schema.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts HeaderObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts HeaderObject
 
 data SecuritySchemeObject = SecuritySchemeObject
   { type_ :: SecuritySchemaType
@@ -723,7 +715,7 @@ data SecuritySchemeObject = SecuritySchemeObject
     --   /Note:/ Required when @type_ == "openIdConnect"@
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts SecuritySchemeObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts SecuritySchemeObject
 
 newtype SecuritySchemaType = SecuritySchemaType Text
   deriving stock (Generic, Show, Eq)
@@ -746,14 +738,14 @@ data OathFlowsObject = OauthFlowsObject
     --   @accessCode@ in OpenAPI 2.0.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts OathFlowsObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts OathFlowsObject
 
 data Discriminator = Discriminator
   { propertyName :: Text
   , mapping :: Maybe (Map Text (ReferenceOr SchemaObject))
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts Discriminator
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts Discriminator
 
 data SchemaObject = SchemaObject
   { title :: Maybe Text
@@ -923,7 +915,7 @@ data MediaTypeObject = MediaTypeObject
     --   type is multipart or application/x-www-form-urlencoded.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts MediaTypeObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts MediaTypeObject
 
 -- | A single encoding definition applied to a single schema property
 data EncodingObject = EncodingObject
@@ -961,7 +953,7 @@ data EncodingObject = EncodingObject
     --   application/x-www-form-urlencoded.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts EncodingObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts EncodingObject
 
 -- | Fields are either response codes as a number-in-string or "default". At least one status code
 --   key is required.
@@ -992,7 +984,7 @@ data ImplicitOauthFlowObject = ImplicitOauthFlowObject
   , scopes :: Map Text Text
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts ImplicitOauthFlowObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ImplicitOauthFlowObject
 
 -- | Configuration details for a supported OAuth Flow
 data PasswordOauthFlowObject = PasswordOauthFlowObject
@@ -1001,7 +993,7 @@ data PasswordOauthFlowObject = PasswordOauthFlowObject
   , scopes :: Map Text Text
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts PasswordOauthFlowObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts PasswordOauthFlowObject
 
 -- | Configuration details for a supported OAuth Flow
 data ClientCredentialsOauthFlowObject = ClientCredentialsOauthFlowObject
@@ -1010,7 +1002,7 @@ data ClientCredentialsOauthFlowObject = ClientCredentialsOauthFlowObject
   , scopes :: Map Text Text
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts ClientCredentialsOauthFlowObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts ClientCredentialsOauthFlowObject
 
 -- | Configuration details for a supported OAuth Flow
 data AuthorizationCodeOauthFlowObject = AuthorizationCodeOauthFlowObject
@@ -1020,7 +1012,7 @@ data AuthorizationCodeOauthFlowObject = AuthorizationCodeOauthFlowObject
   , scopes :: Map Text Text
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts AuthorizationCodeOauthFlowObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts AuthorizationCodeOauthFlowObject
 
 -- | A map of possible out-of band callbacks related to the parent operation.
 --   Each value in the map is a Path Item Object that describes a set of requests
@@ -1070,7 +1062,7 @@ data LinkObject = LinkObject
     -- ^ A server object to be used by the target operation.
   }
   deriving stock (Generic, Show, Eq)
-  deriving (FromJSON, ToJSON) via GenericEncoded PackageOpts LinkObject
+  deriving (FromJSON, ToJSON) via GenericEncoded CamelCaseOpts LinkObject
 
 -- | Runtime expressions allow defining values based on information that will
 --   only be available within the HTTP message in an actual API call. This
