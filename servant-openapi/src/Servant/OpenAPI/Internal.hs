@@ -96,7 +96,7 @@ instance (ToOpenAPISchema a, KnownSymbol name, HasOpenAPI api)
     toEndpointInfo Proxy =
       unsafeMapPathPatterns
         (over #unPathPattern $ (<>) [PathVariable . Text.pack . symbolVal $ Proxy @name])
-        (mapOperations (addParam param) <$> toEndpointInfo (Proxy @api))
+        (mapOperations (addParam param . addParseFailure) <$> toEndpointInfo (Proxy @api))
       where
         param = ParameterObject
           { in_ = Path
@@ -138,19 +138,25 @@ instance (ToOpenAPISchema a, KnownSymbol name, SBoolI (FoldRequired mods), HasOp
           , content = Nothing
           }
 
-instance (ToOpenAPISchema a, KnownSymbol name, SBoolI (FoldRequired mods), HasOpenAPI api)
+instance (ToOpenAPISchema a, KnownSymbol name, SBoolI (FoldRequired mods), SBoolI (FoldLenient mods), HasOpenAPI api)
   => HasOpenAPI
   (Header' mods name a :> api) where
     toEndpointInfo Proxy =
-      mapOperations (addParam param) <$> toEndpointInfo (Proxy @api)
+      mapOperations (addParam param . perhapsAdd400) <$> toEndpointInfo (Proxy @api)
       where
+        perhapsAdd400 = if required || Prelude.not lenient then addParseFailure else id
+        required = case sbool @(FoldRequired mods) of
+            STrue  -> True
+            SFalse -> False
+        lenient :: Bool
+        lenient = case sbool @(FoldLenient mods) of
+            STrue  -> True
+            SFalse -> False
         param = ParameterObject
           { in_ = OpenAPI.Header
           , name = Text.pack . symbolVal $ Proxy @name
           , description = Nothing
-          , required = Just $ case sbool @(FoldRequired mods) of
-              STrue  -> True
-              SFalse -> False
+          , required = Just $ required
           , deprecated = Nothing
           , allowEmptyValue = Just False
           , style = Nothing
@@ -171,12 +177,12 @@ instance (HasOpenAPI l, HasOpenAPI r)
   => HasOpenAPI
     (l :<|> r) where
       toEndpointInfo Proxy =
-        Map.unionWith fish
+        Map.unionWith combinePathItems
           (toEndpointInfo $ Proxy @l)
           (toEndpointInfo $ Proxy @r)
 
-fish :: PathItemObject -> PathItemObject -> PathItemObject
-fish x y = PathItemObject
+combinePathItems :: PathItemObject -> PathItemObject -> PathItemObject
+combinePathItems x y = PathItemObject
   { summary     = view #summary x      <|> view #summary y
   , description = view #description x  <|> view #description y
   , get         = view #get x          <|> view #get y
@@ -241,8 +247,11 @@ instance
   => HasOpenAPI
     (ReqBody' mods contentTypes a :> api) where
       toEndpointInfo Proxy =
-        mapOperations (set #requestBody . Just $ Concrete body)
-          <$> toEndpointInfo (Proxy @api)
+        toEndpointInfo (Proxy @api) <&>
+          mapOperations
+            ( set #requestBody (Just $ Concrete body)
+            . addParseFailure
+            )
         where
           body = RequestBodyObject
             { description = Nothing
@@ -258,9 +267,30 @@ instance
               SFalse -> True
             }
 
+addParseFailure :: OperationObject -> OperationObject
+addParseFailure = over (#responses . #unResponsesObject) . Map.insert "400" $ Concrete parseFailure400
+
+parseFailure400 :: ResponseObject
+parseFailure400 = ResponseObject
+  { description = "Failure to parse request body or required parameter"
+  , headers = Nothing
+  , content = Nothing
+  , links = Nothing
+  }
+
 instance (v ~ Verb verb status contentTypes returned, HasOperation v, IsVerb verb)
   => HasOpenAPI
     (Verb verb status contentTypes returned) where
+      toEndpointInfo Proxy =
+        Map.singleton (PathPattern []) $
+          set
+            (verbLens . toVerb $ Proxy @verb)
+            (Just . view #operation . toOperation $ Proxy @v)
+            blankPathItem
+
+instance (v ~ NoContentVerb verb, HasOperation v, IsVerb verb)
+  => HasOpenAPI
+    (NoContentVerb verb) where
       toEndpointInfo Proxy =
         Map.singleton (PathPattern []) $
           set
@@ -310,6 +340,40 @@ instance (KnownNat status, HasResponse response)
             . Concrete
             . toResponseObject
             $ Proxy @response
+        , callbacks = Nothing
+        , deprecated = Nothing
+        , security = Nothing
+        , servers = Nothing
+        }
+      }
+
+instance HasOperation (NoContentVerb verb) where
+    toOperation Proxy = VerbOperation
+      { status = 204
+      , operation = OperationObject
+        { tags = Nothing
+        , summary = Nothing
+        , description = Nothing
+        , externalDocs = Nothing
+        , operationId = Nothing
+        , parameters = Nothing
+        , requestBody = Nothing
+        , responses
+            = ResponsesObject
+            . Map.singleton "204"
+            . Concrete
+            $ ResponseObject
+                { description = "Successful no-content response"
+                , headers = Nothing
+                , content = Just $ Map.singleton applicationJson
+                  MediaTypeObject
+                    { schema = Nothing
+                    , example = Nothing
+                    , examples = Nothing
+                    , encoding = Nothing
+                    }
+                , links = Nothing
+                }
         , callbacks = Nothing
         , deprecated = Nothing
         , security = Nothing

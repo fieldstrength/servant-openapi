@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RecordWildCards  #-}
+{-# LANGUAGE StrictData       #-}
 
 module OpenAPI.Internal.References where
 
@@ -7,8 +8,8 @@ import           Prelude hiding (not, maximum, minimum)
 
 import           Control.Lens hiding (enum, allOf, anyOf)
 import           Control.Monad.Trans.Accum
-import           Data.Map                   (Map)
-import qualified Data.Map                   as Map
+import           Data.Map.Strict            (Map)
+import qualified Data.Map.Strict            as Map
 import           Data.Set                   (Set)
 import qualified Data.Set                   as Set
 import           Data.Maybe                 ()
@@ -111,6 +112,16 @@ pruneSchema = over nestedSchemas $ \case
 toReference :: Text -> ReferenceOr a
 toReference name = Ref . ReferenceObject $ localRefPrefix <> name
 
+-- | Given any 'Traversable' container of 'SchemaObject's, compile the fully referenced definition
+--   environment. In the context of OpenAPI specs, you usually prefer to use 'pruneAndReference' instead.
+--   This function on the other hand is useful if you only want definitions for serialization formats,
+--   in a potentially different context than an HTTP API.
+gatherSchemaEnvironment :: Traversable f => f SchemaObject -> Map Text SchemaObject
+gatherSchemaEnvironment
+  = definitions
+  . flip execAccum mempty
+  . traverse defineAndPruneSchema
+  . fmap Concrete
 
 nestedSchemas :: Traversal' SchemaObject (ReferenceOr SchemaObject)
 nestedSchemas f SchemaObject{..} =
