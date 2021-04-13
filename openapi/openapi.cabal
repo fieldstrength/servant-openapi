@@ -1,11 +1,13 @@
 name:
   openapi
 version:
-  0.0.0.1
+  0.1.0
 synopsis:
-  OpenAPI schemas
+  OpenAPI 3 schemas
 description:
-  Implements the OpenAPI 3.0.3 spec
+  Implements the OpenAPI 3.0.3 spec to describe APIs and data type serialization formats.
+
+  For examples and further information see <https://github.com/felixmulder/servant-openapi the README>.
 bug-reports:
   https://github.com/felixmulder/servant-openapi
 cabal-version:
@@ -56,8 +58,6 @@ library
     ScopedTypeVariables
     StandaloneDeriving
     TupleSections
-    TypeApplications
-    TypeApplications
     TypeApplications
     TypeOperators
     ViewPatterns
@@ -137,8 +137,6 @@ test-suite openapi-tests
     ScopedTypeVariables
     StandaloneDeriving
     TupleSections
-    TypeApplications
-    TypeApplications
     TypeApplications
     TypeOperators
     ViewPatterns
