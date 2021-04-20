@@ -12,7 +12,6 @@ import           Data.Map               (Map)
 import qualified Data.Map.Strict        as Map
 import           Data.Proxy
 import qualified Data.Text              as Text
-import           GHC.Generics
 import           GHC.TypeLits
 import           OpenAPI
 import           Servant.API            as Servant
@@ -265,7 +264,27 @@ instance (v ~ Verb verb status contentTypes returned, HasOperation v, IsVerb ver
         Map.singleton (PathPattern []) $
           set
             (verbLens . toVerb $ Proxy @verb)
-            (Just . view #operation . toOperation $ Proxy @v)
+            (Just . toOperation $ Proxy @v)
+            blankPathItem
+
+instance (v ~ NoContentVerb verb, HasOperation v, IsVerb verb)
+  => HasOpenAPI
+    (NoContentVerb verb) where
+      toEndpointInfo Proxy =
+        Map.singleton (PathPattern []) $
+          set
+            (verbLens . toVerb $ Proxy @verb)
+            (Just . toOperation $ Proxy @v)
+            blankPathItem
+
+instance (u ~ UVerb verb contentTypes responses, HasOperation u, IsVerb verb)
+  => HasOpenAPI
+    (UVerb verb contentTypes responses) where
+      toEndpointInfo Proxy =
+        Map.singleton (PathPattern []) $
+          set
+            (verbLens . toVerb $ Proxy @verb)
+            (Just . toOperation $ Proxy @u)
             blankPathItem
 
 blankPathItem :: PathItemObject
@@ -285,37 +304,92 @@ blankPathItem = PathItemObject
   }
 
 class HasOperation api where
-  toOperation :: Proxy api -> VerbOperation
-
-data VerbOperation = VerbOperation
-  { status :: Int
-  , operation :: OperationObject
-  } deriving stock (Generic)
+  toOperation :: Proxy api -> OperationObject
 
 instance (KnownNat status, HasResponse response)
   => HasOperation (Verb verb status contentTypes response) where
-    toOperation Proxy = VerbOperation
-      { status = fromInteger . natVal $ Proxy @status
-      , operation = OperationObject
-        { tags = Nothing
-        , summary = Nothing
-        , description = Nothing
-        , externalDocs = Nothing
-        , operationId = Nothing
-        , parameters = Nothing
-        , requestBody = Nothing
-        , responses
-            = ResponsesObject
-            . Map.singleton (Text.pack . show . natVal $ Proxy @status)
-            . Concrete
-            . toResponseObject
-            $ Proxy @response
-        , callbacks = Nothing
-        , deprecated = Nothing
-        , security = Nothing
-        , servers = Nothing
-        }
+    toOperation Proxy = OperationObject
+      { tags = Nothing
+      , summary = Nothing
+      , description = Nothing
+      , externalDocs = Nothing
+      , operationId = Nothing
+      , parameters = Nothing
+      , requestBody = Nothing
+      , responses
+          = ResponsesObject
+          . Map.singleton (Text.pack . show . natVal $ Proxy @status)
+          . Concrete
+          . toResponseObject
+          $ Proxy @response
+      , callbacks = Nothing
+      , deprecated = Nothing
+      , security = Nothing
+      , servers = Nothing
       }
+
+instance HasOperation (NoContentVerb verb) where
+    toOperation Proxy = OperationObject
+      { tags = Nothing
+      , summary = Nothing
+      , description = Nothing
+      , externalDocs = Nothing
+      , operationId = Nothing
+      , parameters = Nothing
+      , requestBody = Nothing
+      , responses
+          = ResponsesObject
+          . Map.singleton "204"
+          . Concrete
+          $ ResponseObject
+              { description = "Successful no-content response"
+              , headers = Nothing
+              , content = Just $ Map.singleton applicationJson
+                MediaTypeObject
+                  { schema = Nothing
+                  , example = Nothing
+                  , examples = Nothing
+                  , encoding = Nothing
+                  }
+              , links = Nothing
+              }
+      , callbacks = Nothing
+      , deprecated = Nothing
+      , security = Nothing
+      , servers = Nothing
+      }
+
+instance HasResponses responses => HasOperation (UVerb verb contentTypes responses) where
+  toOperation Proxy = OperationObject
+    { tags = Nothing
+    , summary = Nothing
+    , description = Nothing
+    , externalDocs = Nothing
+    , operationId = Nothing
+    , parameters = Nothing
+    , requestBody = Nothing
+    , responses = toResponsesObject $ Proxy @responses
+    , callbacks = Nothing
+    , deprecated = Nothing
+    , security = Nothing
+    , servers = Nothing
+    }
+
+class HasResponses api where
+  toResponsesObject :: Proxy api -> ResponsesObject
+
+instance HasResponses '[] where
+  toResponsesObject _ = ResponsesObject mempty
+
+instance (HasResponse r, HasStatus r, HasResponses rs) => HasResponses (r ': rs) where
+  toResponsesObject _ =
+    insertResponseObject
+      (Text.pack . show . natVal $ Proxy @(StatusOf r))
+      (Concrete . toResponseObject $ Proxy @r)
+      (toResponsesObject $ Proxy @rs)
+    where
+      insertResponseObject k v (ResponsesObject o) =
+        ResponsesObject (Map.insert k v o)
 
 class HasResponse api where
   toResponseObject :: Proxy api -> ResponseObject
