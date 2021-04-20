@@ -277,6 +277,16 @@ instance (v ~ NoContentVerb verb, HasOperation v, IsVerb verb)
             (Just . toOperation $ Proxy @v)
             blankPathItem
 
+instance (u ~ UVerb verb contentTypes responses, HasOperation u, IsVerb verb)
+  => HasOpenAPI
+    (UVerb verb contentTypes responses) where
+      toEndpointInfo Proxy =
+        Map.singleton (PathPattern []) $
+          set
+            (verbLens . toVerb $ Proxy @verb)
+            (Just . toOperation $ Proxy @u)
+            blankPathItem
+
 blankPathItem :: PathItemObject
 blankPathItem = PathItemObject
   { summary = Nothing
@@ -348,6 +358,38 @@ instance HasOperation (NoContentVerb verb) where
       , security = Nothing
       , servers = Nothing
       }
+
+instance HasResponses responses => HasOperation (UVerb verb contentTypes responses) where
+  toOperation Proxy = OperationObject
+    { tags = Nothing
+    , summary = Nothing
+    , description = Nothing
+    , externalDocs = Nothing
+    , operationId = Nothing
+    , parameters = Nothing
+    , requestBody = Nothing
+    , responses = toResponsesObject $ Proxy @responses
+    , callbacks = Nothing
+    , deprecated = Nothing
+    , security = Nothing
+    , servers = Nothing
+    }
+
+class HasResponses api where
+  toResponsesObject :: Proxy api -> ResponsesObject
+
+instance HasResponses '[] where
+  toResponsesObject _ = ResponsesObject mempty
+
+instance (HasResponse r, HasStatus r, HasResponses rs) => HasResponses (r ': rs) where
+  toResponsesObject _ =
+    insertResponseObject
+      (Text.pack . show . natVal $ Proxy @(StatusOf r))
+      (Concrete . toResponseObject $ Proxy @r)
+      (toResponsesObject $ Proxy @rs)
+    where
+      insertResponseObject k v (ResponsesObject o) =
+        ResponsesObject (Map.insert k v o)
 
 class HasResponse api where
   toResponseObject :: Proxy api -> ResponseObject
